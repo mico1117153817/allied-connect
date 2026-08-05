@@ -8,6 +8,7 @@ def build_calendar_data(
     scheduled_shifts: list,
     start_date: str,
     end_date: str,
+    late_threshold_minutes: int | None = None,
 ) -> list[dict]:
     """Build calendar data for a date range.
 
@@ -89,7 +90,8 @@ def build_calendar_data(
                         # Compare in local naive terms; if first_in has tz, strip it
                         first_in_naive = first_in_dt.replace(tzinfo=None) if first_in_dt.tzinfo else first_in_dt
                         delta = (first_in_naive - sched_dt).total_seconds() / 60.0
-                        if delta > settings.LATE_THRESHOLD_MINUTES:
+                        threshold = late_threshold_minutes if late_threshold_minutes is not None else settings.LATE_THRESHOLD_MINUTES
+                        if delta > threshold:
                             is_late = True
                             late_minutes = int(round(delta))
 

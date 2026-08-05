@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./employee_portal.db"
 
-    # Email (Resend)
-    RESEND_API_KEY: str = ""
-    EMAIL_FROM: str = "Employee Portal <noreply@portal.local>"
+    # Email (Postmark)
+    POSTMARK_API_KEY: str = ""
+    EMAIL_FROM: str = "Allied Connect <noreply@alliedalliancegroupinc.com>"
 
     # Frontend URL (for CORS)
     FRONTEND_URL: str = "http://localhost:5173"
@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     CACHE_TTL_SHIFTS: int = 900      # 15 min
     CACHE_TTL_STATUS: int = 120      # 2 min
 
-    # Late arrival threshold
-    LATE_THRESHOLD_MINUTES: int = 5
+    # Late arrival threshold (default 1 minute; overridable via Settings UI)
+    LATE_THRESHOLD_MINUTES: int = 1
 
     # Pay dates (8th and 22nd)
     PAY_DATES: list[int] = [8, 22]

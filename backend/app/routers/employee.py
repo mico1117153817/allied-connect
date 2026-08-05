@@ -11,6 +11,7 @@ from app.models.scheduled_shift import ScheduledShift
 from app.models.pay_adjustment import PayAdjustment
 from app.services.timestation import timestation
 from app.services.calendar import build_calendar_data
+from app.services.settings_service import get_setting
 from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/api/me", tags=["employee"])
@@ -76,11 +77,14 @@ async def get_calendar(
         .filter(ScheduledShift.employee_id == user["timestation_id"])
         .all()
     )
-    calendar = build_calendar_data(shifts, scheduled_shifts, start, end)
+    # Get late threshold from settings (DB) or config default
+    threshold_str = get_setting(db, "late_threshold_minutes")
+    threshold = int(threshold_str) if threshold_str else settings.LATE_THRESHOLD_MINUTES
+    calendar = build_calendar_data(shifts, scheduled_shifts, start, end, late_threshold_minutes=threshold)
     return {
         "start": start,
         "end": end,
-        "late_threshold_minutes": settings.LATE_THRESHOLD_MINUTES,
+        "late_threshold_minutes": threshold,
         "days": calendar,
     }
 

@@ -25,10 +25,11 @@ def _shift(in_time: str, out_time: str, minutes: int) -> dict:
 
 def test_on_time_shift_not_late():
     """A shift that clocks in before the late threshold should not be flagged late."""
-    # 2026-08-03 is a Monday (weekday 0); scheduled start 09:00, clocks in 09:02
-    shifts = [_shift("2026-08-03T09:02:00", "2026-08-03T17:05:00", 483)]
+    # 2026-08-03 is a Monday (weekday 0); scheduled start 09:00, clocks in 09:00:30
+    # With threshold=1, 30 seconds is not > 1 minute so not late
+    shifts = [_shift("2026-08-03T09:00:30", "2026-08-03T17:05:00", 483)]
     scheduled = [MockScheduledShift(0, time(9, 0))]
-    result = build_calendar_data(shifts, scheduled, "2026-08-03", "2026-08-03")
+    result = build_calendar_data(shifts, scheduled, "2026-08-03", "2026-08-03", late_threshold_minutes=1)
 
     assert len(result) == 1
     day = result[0]
@@ -42,11 +43,11 @@ def test_on_time_shift_not_late():
 
 
 def test_late_shift_flagged():
-    """A shift that clocks in more than LATE_THRESHOLD_MINUTES late is flagged."""
-    # 2026-08-03 is a Monday (weekday 0); scheduled 09:00, clocks in 09:12 (>5 min late)
+    """A shift that clocks in more than the threshold late is flagged."""
+    # 2026-08-03 is a Monday (weekday 0); scheduled 09:00, clocks in 09:12 (>1 min late)
     shifts = [_shift("2026-08-03T09:12:00", "2026-08-03T17:00:00", 468)]
     scheduled = [MockScheduledShift(0, time(9, 0))]
-    result = build_calendar_data(shifts, scheduled, "2026-08-03", "2026-08-03")
+    result = build_calendar_data(shifts, scheduled, "2026-08-03", "2026-08-03", late_threshold_minutes=1)
 
     assert len(result) == 1
     day = result[0]

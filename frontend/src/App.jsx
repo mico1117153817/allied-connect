@@ -6,6 +6,7 @@ import TimeOff from './pages/TimeOff'
 import Manager from './pages/Manager'
 import Documents from './pages/Documents'
 import ManageDocuments from './pages/ManageDocuments'
+import Settings from './pages/Settings'
 
 function ProtectedRoute({ children, managerOnly = false }) {
   const location = useLocation()
@@ -38,6 +39,9 @@ export default function App() {
       } />
       <Route path="/manage-documents" element={
         <ProtectedRoute managerOnly><ManageDocuments /></ProtectedRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute managerOnly><Settings /></ProtectedRoute>
       } />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

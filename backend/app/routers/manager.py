@@ -255,3 +255,53 @@ async def set_employee_role(
     emp.role = req.role
     db.commit()
     return {"employee_id": emp.timestation_id, "role": emp.role}
+
+
+# ── Create local-only account (for execs not in TimeStation) ───
+
+class CreateLocalAccountInput(BaseModel):
+    name: str
+    pin: str
+    email: str | None = None
+    title: str | None = None
+    role: str = "manager"  # default to manager for execs
+
+
+@router.post("/local-account")
+async def create_local_account(
+    req: CreateLocalAccountInput,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Create a local-only employee account (not synced from TimeStation).
+    Used for executives like President/VP who don't clock in via TimeStation."""
+    # Check PIN isn't already in use
+    existing = db.query(Employee).filter(Employee.pin == req.pin).first()
+    if existing:
+        raise HTTPException(400, f"PIN {req.pin} is already assigned to {existing.name}")
+
+    # Generate a local ID
+    import hashlib
+    local_id = f"local_{hashlib.md5(req.name.encode()).hexdigest()[:12]}"
+
+    emp = Employee(
+        timestation_id=local_id,
+        name=req.name,
+        pin=req.pin,
+        email=req.email,
+        title=req.title,
+        role=req.role,
+        status="out",
+        is_active=True,
+    )
+    db.add(emp)
+    db.commit()
+    db.refresh(emp)
+    return {
+        "employee_id": emp.timestation_id,
+        "name": emp.name,
+        "pin": emp.pin,
+        "role": emp.role,
+        "status": "created",
+    }
+

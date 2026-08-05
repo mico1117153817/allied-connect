@@ -1,11 +1,13 @@
-"""Email notification service for time-off requests using the Resend SDK.
+"""Email notification service for time-off requests using Postmark.
 
-In dev mode (no RESEND_API_KEY), this simply logs the notification instead of
+In dev mode (no POSTMARK_API_KEY), this simply logs the notification instead of
 sending a real email, so the app works out of the box without an account.
 """
 
 from datetime import date
 from typing import Optional
+
+import httpx
 
 from app.config import settings
 
@@ -40,7 +42,7 @@ def _build_html(
     <tr>
       <td style="padding:24px 32px 8px;">
         <h2 style="margin:0 0 4px; color:#111827;">Time-Off Request Update</h2>
-        <p style="margin:0; color:#6b7280; font-size:14px;">Employee Portal</p>
+        <p style="margin:0; color:#6b7280; font-size:14px;">Allied Connect</p>
       </td>
     </tr>
     <tr>
@@ -79,15 +81,15 @@ async def send_time_off_notification(
     end_date: date,
     request_type: str,
 ) -> Optional[dict]:
-    """Send a time-off decision email to an employee.
+    """Send a time-off decision email to an employee via Postmark.
 
-    Returns the Resend response dict when an email was actually sent, or
+    Returns the Postmark response dict when an email was actually sent, or
     ``None`` in dev mode (no API key configured).
     """
     subject = _build_subject(status, request_type)
     html = _build_html(employee_name, status, start_date, end_date, request_type)
 
-    if not settings.RESEND_API_KEY:
+    if not settings.POSTMARK_API_KEY:
         # Dev mode: just log it.
         print(
             "[email] (dev mode) time-off notification -> "
@@ -96,15 +98,21 @@ async def send_time_off_notification(
         )
         return None
 
-    import resend
-
-    resend.api_key = settings.RESEND_API_KEY
-    response = resend.Emails.send(
-        {
-            "from": settings.EMAIL_FROM,
-            "to": [to_email],
-            "subject": subject,
-            "html": html,
-        }
-    )
-    return response
+    # Postmark API: https://postmarkapp.com/developer/api/email-api
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.postmarkapp.com/email",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-Postmark-Server-Token": settings.POSTMARK_API_KEY,
+            },
+            json={
+                "From": settings.EMAIL_FROM,
+                "To": to_email,
+                "Subject": subject,
+                "HtmlBody": html,
+            },
+            timeout=15.0,
+        )
+        return {"status_code": response.status_code, "body": response.json()}

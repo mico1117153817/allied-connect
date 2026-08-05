@@ -60,11 +60,39 @@ async def login(
             detail="Too many failed login attempts from this IP. Please try again later.",
         )
 
-    # Look up the PIN in the TimeStation employee roster
-    employees = await timestation.get_employees()
-    ts_emp = next((e for e in employees if e.get("pin") == pin), None)
+    # Look up the PIN in the local DB first (for non-TimeStation users like execs)
+    local_emp = (
+        db.query(Employee).filter(Employee.pin == pin).first()
+    )
 
-    if ts_emp is None:
+    ts_emp = None
+    if not local_emp or local_emp.timestation_id.startswith("local_"):
+        # Also check TimeStation roster
+        employees = await timestation.get_employees()
+        ts_emp = next((e for e in employees if e.get("pin") == pin), None)
+
+    # Prefer TimeStation data if found there, fall back to local-only
+    if ts_emp:
+        matched = ts_emp
+        is_local_only = False
+    elif local_emp:
+        matched = {
+            "employee_id": local_emp.timestation_id,
+            "name": local_emp.name,
+            "pin": local_emp.pin,
+            "email": local_emp.email,
+            "status": local_emp.status,
+            "primary_department": local_emp.primary_department,
+            "primary_department_id": local_emp.primary_department_id,
+            "custom_employee_id": local_emp.custom_employee_id,
+            "title": local_emp.title,
+        }
+        is_local_only = True
+    else:
+        matched = None
+        is_local_only = False
+
+    if not matched:
         rate_limiter.record_failed_pin(pin)
         rate_limiter.record_failed_ip(client_ip)
         raise HTTPException(
@@ -73,39 +101,42 @@ async def login(
         )
 
     # Upsert Employee in the local DB (preserve existing role)
-    timestation_id = ts_emp.get("employee_id", "")
+    timestation_id = ts_emp.get("employee_id", "") if ts_emp else matched.get("employee_id", "")
     existing = (
         db.query(Employee).filter(Employee.timestation_id == timestation_id).first()
     )
 
     if existing:
-        existing.name = ts_emp.get("name", existing.name)
-        existing.pin = pin
-        existing.email = ts_emp.get("email", existing.email)
-        existing.status = ts_emp.get("status", existing.status)
-        existing.primary_department = ts_emp.get(
-            "primary_department", existing.primary_department
-        )
-        existing.primary_department_id = ts_emp.get(
-            "primary_department_id", existing.primary_department_id
-        )
-        existing.custom_employee_id = ts_emp.get(
-            "custom_employee_id", existing.custom_employee_id
-        )
-        existing.title = ts_emp.get("title", existing.title)
+        # Update from TimeStation if available; preserve role and email if local-only
+        if ts_emp:
+            existing.name = ts_emp.get("name", existing.name)
+            existing.pin = pin
+            if ts_emp.get("email"):
+                existing.email = ts_emp["email"]
+            existing.status = ts_emp.get("status", existing.status)
+            existing.primary_department = ts_emp.get(
+                "primary_department", existing.primary_department
+            )
+            existing.primary_department_id = ts_emp.get(
+                "primary_department_id", existing.primary_department_id
+            )
+            existing.custom_employee_id = ts_emp.get(
+                "custom_employee_id", existing.custom_employee_id
+            )
+            existing.title = ts_emp.get("title", existing.title)
         db.commit()
         db.refresh(existing)
     else:
         existing = Employee(
             timestation_id=timestation_id,
-            custom_employee_id=ts_emp.get("custom_employee_id"),
-            name=ts_emp.get("name", ""),
-            title=ts_emp.get("title"),
-            primary_department=ts_emp.get("primary_department"),
-            primary_department_id=ts_emp.get("primary_department_id"),
+            custom_employee_id=matched.get("custom_employee_id"),
+            name=matched.get("name", ""),
+            title=matched.get("title"),
+            primary_department=matched.get("primary_department"),
+            primary_department_id=matched.get("primary_department_id"),
             pin=pin,
-            email=ts_emp.get("email"),
-            status=ts_emp.get("status", "out"),
+            email=matched.get("email"),
+            status=matched.get("status", "out"),
             role="employee",
         )
         db.add(existing)

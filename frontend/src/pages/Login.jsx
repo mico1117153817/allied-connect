@@ -25,14 +25,14 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900">
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-2xl shadow-xl">
         <div>
           <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            Employee Portal
+            Allied Connect
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in with your TimeStation PIN
+            Sign in with your PIN
           </p>
         </div>
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
@@ -55,7 +55,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading || pin.length < 4}
-            className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg transition"
+            className="w-full py-3 bg-blue-700 text-white rounded-xl hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg transition"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

@@ -60,10 +60,11 @@ export default function Manager() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">Manager Dashboard</h1>
+          <h1 className="text-xl font-bold">Allied Connect — Manager</h1>
           <div className="flex items-center gap-4">
             <a href="/dashboard" className="text-sm text-blue-600 hover:underline">Employee View</a>
-            <a href="/manage-documents" className="text-sm text-blue-600 hover:underline">Manage Documents</a>
+            <a href="/manage-documents" className="text-sm text-blue-600 hover:underline">Documents</a>
+            <a href="/settings" className="text-sm text-blue-600 hover:underline">Settings</a>
             <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
           </div>
         </div>
