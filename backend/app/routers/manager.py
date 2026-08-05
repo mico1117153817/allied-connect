@@ -47,7 +47,10 @@ async def list_all_employees(
     db: Session = Depends(get_db),
 ):
     ts_employees = await timestation.get_employees()
+    ts_ids = {e["employee_id"] for e in ts_employees}
     result = []
+
+    # TimeStation employees
     for emp in ts_employees:
         db_emp = (
             db.query(Employee)
@@ -65,6 +68,27 @@ async def list_all_employees(
                 "custom_id": emp.get("custom_employee_id", ""),
             }
         )
+
+    # Local-only employees (not in TimeStation, e.g. execs)
+    local_emps = (
+        db.query(Employee)
+        .filter(~Employee.timestation_id.in_(ts_ids) if ts_ids else True)
+        .filter(Employee.is_active == True)
+        .all()
+    )
+    for emp in local_emps:
+        result.append(
+            {
+                "timestation_id": emp.timestation_id,
+                "name": emp.name,
+                "department": emp.primary_department or "",
+                "status": emp.status or "out",
+                "email": emp.email,
+                "role": emp.role,
+                "custom_id": emp.custom_employee_id or "",
+            }
+        )
+
     return {"employees": result}
 
 
