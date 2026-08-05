@@ -25,7 +25,10 @@ export default function Manager() {
   // Time off requests
   const { data: timeOffData, isLoading: timeOffLoading } = useQuery({
     queryKey: ['all-time-off'],
-    queryFn: () => api.get('/api/time-off/all?status=all').then(r => r.data),
+    queryFn: () => api.get('/api/time-off/all?status=all').then(r => {
+      const d = r.data
+      return Array.isArray(d) ? { requests: d } : d
+    }),
   })
 
   // Pay adjustments

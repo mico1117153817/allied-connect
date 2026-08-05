@@ -17,7 +17,10 @@ export default function TimeOff() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-time-off'],
-    queryFn: () => api.get('/api/time-off').then(r => r.data),
+    queryFn: () => api.get('/api/time-off').then(r => {
+      const d = r.data
+      return Array.isArray(d) ? { requests: d } : d
+    }),
   })
 
   const createMutation = useMutation({

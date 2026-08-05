@@ -1,0 +1,17 @@
+# Render.com deployment configuration
+# Deploy via Dockerfile at the root of this repo
+# Set environment variables in the Render dashboard:
+#   TIMESTATION_API_KEY - your TimeStation API key
+#   SECRET_KEY - generate with: python -c "import secrets; print(secrets.token_hex(32))"
+#   RESEND_API_KEY - from resend.com (optional, for email notifications)
+#   DATABASE_URL - use Render's managed PostgreSQL
+services:
+  - type: web
+    name: employee-portal
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: portal-db
+          property: connectionString
