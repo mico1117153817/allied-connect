@@ -53,7 +53,7 @@ async def get_hours(
 ):
     """Get worked shifts and total hours for a date range."""
     shifts = await timestation.get_shifts(user["timestation_id"], start, end)
-    total_minutes = sum(s.get("total_minutes", 0) or 0 for s in shifts)
+    total_minutes = sum(int(s.get("total_minutes", 0) or 0) for s in shifts)
     return {
         "start": start,
         "end": end,

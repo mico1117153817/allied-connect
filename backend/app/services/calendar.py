@@ -52,7 +52,7 @@ def build_calendar_data(
                 day_shifts,
                 key=lambda s: (s.get("in", {}) or {}).get("time", ""),
             )
-            total_minutes = sum(s.get("total_minutes", 0) or 0 for s in day_shifts_sorted)
+            total_minutes = sum(int(s.get("total_minutes", 0) or 0) for s in day_shifts_sorted)
 
             shift_entries = []
             for s in day_shifts_sorted:
@@ -61,7 +61,7 @@ def build_calendar_data(
                 shift_entries.append({
                     "in": in_t,
                     "out": out_t,
-                    "minutes": s.get("total_minutes", 0) or 0,
+                    "minutes": int(s.get("total_minutes", 0) or 0),
                 })
 
             # Late detection: compare first shift's in.time to scheduled start
