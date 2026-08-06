@@ -31,7 +31,7 @@ export default function Settings() {
   const [rateMsg, setRateMsg] = useState('')
   const [hbEmpId, setHbEmpId] = useState('')
   const [hbData, setHbData] = useState(null)
-  const [hbForm, setHbForm] = useState({ type: 'back_hours', amount: '', reason: '' })
+  const [hbForm, setHbForm] = useState({ type: 'back_hours', amount: '', reason: '', pay_period_id: null })
   const [hbMsg, setHbMsg] = useState('')
 
   const { data, isLoading } = useQuery({
@@ -556,6 +556,21 @@ export default function Settings() {
                         placeholder="8"
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Pay Period (assign to)</label>
+                      <select
+                        value={hbForm.pay_period_id || ''}
+                        onChange={(e) => setHbForm({ ...hbForm, pay_period_id: e.target.value ? parseInt(e.target.value) : null })}
+                        className="px-3 py-2 border rounded text-sm"
+                      >
+                        <option value="">No specific period</option>
+                        {ppData?.pay_periods?.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.label} ({p.start_date} → {p.end_date})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="flex-1 min-w-48">
                       <label className="block text-xs text-gray-500 mb-1">Reason (optional)</label>
                       <input
@@ -574,11 +589,12 @@ export default function Settings() {
                             type: hbForm.type,
                             amount: parseFloat(hbForm.amount),
                             reason: hbForm.reason || null,
+                            pay_period_id: hbForm.pay_period_id || null,
                           })
                           setHbMsg('Hours added!')
                           const resp = await api.get(`/api/manager/hour-balance/${hbEmpId}`)
                           setHbData(resp.data)
-                          setHbForm({ type: 'back_hours', amount: '', reason: '' })
+                          setHbForm({ type: 'back_hours', amount: '', reason: '', pay_period_id: null })
                         } catch (err) {
                           setHbMsg('Failed to add hours')
                         }

@@ -565,6 +565,7 @@ class AddHoursInput(BaseModel):
     type: str  # back_hours, vacation_hours, sick_hours
     amount: float
     reason: str | None = None
+    pay_period_id: int | None = None  # which pay period the hours apply to
 
 
 @router.post("/hour-balance/add")
@@ -586,6 +587,7 @@ async def add_hour_balance(
         input_by=user["timestation_id"],
         input_by_name=user["name"],
         reason=req.reason,
+        pay_period_id=req.pay_period_id,
     )
     return result
 

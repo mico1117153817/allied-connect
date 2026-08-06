@@ -26,6 +26,7 @@ def add_hours(
     input_by: str,
     input_by_name: str,
     reason: str | None = None,
+    pay_period_id: int | None = None,
 ) -> dict:
     """Add hours to an employee's balance. Creates/updates balance + logs transaction."""
     if type not in ("back_hours", "vacation_hours", "sick_hours"):
@@ -55,6 +56,7 @@ def add_hours(
         reason=reason,
         input_by=input_by,
         input_by_name=input_by_name,
+        pay_period_id=pay_period_id,
     )
     db.add(txn)
     db.commit()
@@ -136,6 +138,7 @@ def get_transaction_history(db: Session, employee_id: str) -> list[dict]:
             "reason": t.reason,
             "input_by_name": t.input_by_name,
             "time_off_request_id": t.time_off_request_id,
+            "pay_period_id": t.pay_period_id,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         }
         for t in txns

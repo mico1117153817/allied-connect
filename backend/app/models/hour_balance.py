@@ -27,4 +27,5 @@ class HourTransaction(Base):
     input_by = Column(String, nullable=True)  # timestation_id of who did it
     input_by_name = Column(String, nullable=True)
     time_off_request_id = Column(Integer, nullable=True)  # link to time-off request if deduction
+    pay_period_id = Column(Integer, nullable=True)  # which pay period the hours apply to
     created_at = Column(DateTime, server_default=func.now())
