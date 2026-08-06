@@ -234,6 +234,14 @@ async def get_pay_period_data(
     back_hours = sum(float(a.hours) for a in adjustments if a.type == "back_hours")
     vacation_hours = sum(float(a.hours) for a in adjustments if a.type == "vacation_hours")
 
+    # Get employee's private hourly rate for gross pay calculation
+    emp = db.query(Employee).filter(Employee.timestation_id == user["timestation_id"]).first()
+    hourly_rate = float(emp.hourly_rate) if emp and emp.hourly_rate else None
+    worked_hours = round(total_minutes / 60.0, 2)
+    gross_pay = None
+    if hourly_rate:
+        gross_pay = round((worked_hours + back_hours + vacation_hours) * hourly_rate, 2)
+
     # Stats
     worked_days = [d for d in calendar if d["worked"]]
     late_days = [d for d in calendar if d["is_late"]]
@@ -247,12 +255,14 @@ async def get_pay_period_data(
             "start_date": start_str,
             "end_date": end_str,
         },
-        "total_hours": round(total_minutes / 60.0, 2),
+        "total_hours": worked_hours,
         "days_worked": len(worked_days),
         "late_arrivals": len(late_days),
         "left_early": len(early_days),
         "back_hours": round(back_hours, 2),
         "vacation_hours": round(vacation_hours, 2),
+        "hourly_rate": hourly_rate,
+        "gross_pay": gross_pay,
         "calendar": calendar,
         "shifts": shifts,
     }

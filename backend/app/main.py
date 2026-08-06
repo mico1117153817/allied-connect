@@ -19,8 +19,8 @@ from app.services.timestation import timestation
 # Managers to set up on first start
 TIMESTATION_MANAGERS = ["Margaret Montimerano", "Brandon Shampoe"]
 LOCAL_ACCOUNTS = [
-    {"name": "Marc Mancuso", "pin": "1001", "email": "marcmancuso@alliedalliancegroupinc.com", "title": "President"},
-    {"name": "Nicole Mancuso", "pin": "1002", "email": "nicole@alliedalliancegroupinc.com", "title": "Vice President"},
+    {"name": "Marc Mancuso", "pin": "1001", "email": "marcmancuso@alliedalliancegroupinc.com", "title": "President", "role": "super_admin"},
+    {"name": "Nicole Mancuso", "pin": "1002", "email": "nicole@alliedalliancegroupinc.com", "title": "Vice President", "role": "super_admin"},
 ]
 
 
@@ -78,10 +78,10 @@ async def bootstrap_managers():
                 (Employee.name == acct["name"]) | (Employee.pin == acct["pin"])
             ).first()
             if existing:
-                existing.role = "manager"
+                existing.role = acct.get("role", "manager")
                 existing.email = acct["email"]
                 existing.title = acct["title"]
-                print(f"[bootstrap] Updated {existing.name} as manager")
+                print(f"[bootstrap] Updated {existing.name} as {existing.role}")
             else:
                 local_id = f"local_{hashlib.md5(acct['name'].encode()).hexdigest()[:12]}"
                 db.add(Employee(
@@ -90,11 +90,11 @@ async def bootstrap_managers():
                     pin=acct["pin"],
                     email=acct["email"],
                     title=acct["title"],
-                    role="manager",
+                    role=acct.get("role", "manager"),
                     status="out",
                     is_active=True,
                 ))
-                print(f"[bootstrap] Created {acct['name']} as manager")
+                print(f"[bootstrap] Created {acct['name']} as {acct.get('role', 'manager')}")
 
         db.commit()
         print("[bootstrap] Done — 4 managers ready")

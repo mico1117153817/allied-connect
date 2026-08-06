@@ -205,10 +205,20 @@ def get_current_user(
 
 
 def require_manager(user: dict = Depends(get_current_user)) -> dict:
-    """Dependency that ensures the current user has the ``manager`` role."""
-    if user.get("role") != "manager":
+    """Dependency that ensures the current user has the ``manager`` or ``super_admin`` role."""
+    if user.get("role") not in ("manager", "super_admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Manager access required",
+        )
+    return user
+
+
+def require_super_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Dependency that ensures the current user has the ``super_admin`` role."""
+    if user.get("role") != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required",
         )
     return user

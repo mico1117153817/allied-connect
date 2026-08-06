@@ -83,6 +83,11 @@ export default function Dashboard() {
     return 'bg-white border-gray-200'
   }
 
+  // Check if a date falls within the selected pay period
+  const ppStart = ppData?.pay_period?.start_date
+  const ppEnd = ppData?.pay_period?.end_date
+  const isInPayPeriod = (dateStr) => ppStart && ppEnd && dateStr >= ppStart && dateStr <= ppEnd
+
   // Format time from ISO string
   const fmtTime = (iso) => iso ? iso.slice(11, 16) : '--'
 
@@ -200,6 +205,19 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500">Vac Hours</p>
                     <p className="text-xl font-bold text-indigo-600">{ppData.vacation_hours}</p>
                   </div>
+                  {ppData.gross_pay !== null && ppData.gross_pay !== undefined && (
+                    <div className="col-span-2 md:col-span-6 bg-emerald-50 p-3 rounded-lg flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-gray-500">
+                          Gross Pay — ${ppData.hourly_rate}/hr × {(ppData.total_hours + ppData.back_hours + ppData.vacation_hours).toFixed(2)}h
+                        </p>
+                        <p className="text-sm text-gray-600">Worked: {ppData.total_hours}h + Back: {ppData.back_hours}h + Vac: {ppData.vacation_hours}h</p>
+                      </div>
+                      <p className="text-2xl font-bold text-emerald-700">
+                        ${ppData.gross_pay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -235,6 +253,7 @@ export default function Dashboard() {
                       'min-h-20 p-1 rounded border text-xs transition',
                       cellBg(cell),
                       cell && 'cursor-pointer hover:ring-2 hover:ring-blue-300',
+                      cell && isInPayPeriod(cell.date) && 'ring-2 ring-blue-500 border-blue-500',
                     ].filter(Boolean).join(' ')}
                   >
                     {cell && (

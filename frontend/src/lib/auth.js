@@ -19,5 +19,10 @@ export function logout() {
 
 export function isManager() {
   const emp = getEmployee()
-  return emp?.role === 'manager'
+  return emp?.role === 'manager' || emp?.role === 'super_admin'
+}
+
+export function isSuperAdmin() {
+  const emp = getEmployee()
+  return emp?.role === 'super_admin'
 }

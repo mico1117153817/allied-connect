@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { logout } from '../lib/auth'
+import { logout, isSuperAdmin } from '../lib/auth'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const DOW_NUM = [0, 1, 2, 3, 4, 5, 6]
@@ -26,6 +26,9 @@ export default function Settings() {
   })
   const [bulkSaving, setBulkSaving] = useState(false)
   const [ppForm, setPpForm] = useState({ pay_date: '', label: '', start_date: '', end_date: '' })
+  const [rateEmpId, setRateEmpId] = useState('')
+  const [rateValue, setRateValue] = useState('')
+  const [rateMsg, setRateMsg] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -473,6 +476,62 @@ export default function Settings() {
             </div>
           )}
         </div>
+
+        {/* Hourly Rate Management (super admin only) */}
+        {isSuperAdmin() && (
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-2">Employee Hourly Rates</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Set private hourly rates for gross pay calculations. Only super admins can see and set these rates. Employees see their own rate and gross pay when they view a pay period — no other employees can see it.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Employee</label>
+              <select
+                value={rateEmpId}
+                onChange={(e) => { setRateEmpId(e.target.value); setRateMsg('') }}
+                className="px-4 py-2 border rounded-lg min-w-64"
+              >
+                <option value="">Choose an employee...</option>
+                {empData?.employees?.map(e => (
+                  <option key={e.timestation_id} value={e.timestation_id}>
+                    {e.name} — {e.department}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {rateEmpId && (
+              <div className="flex gap-3 items-end">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Hourly Rate ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={rateValue}
+                    onChange={(e) => setRateValue(e.target.value)}
+                    placeholder="25.00"
+                    className="w-32 px-3 py-2 border rounded text-sm"
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.put('/api/manager/hourly-rate', { employee_id: rateEmpId, hourly_rate: rateValue })
+                      setRateMsg('Rate saved!')
+                      qc.invalidateQueries({ queryKey: ['hourly-rate', rateEmpId] })
+                    } catch (err) {
+                      setRateMsg('Failed to save rate')
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                >
+                  Save Rate
+                </button>
+              </div>
+            )}
+            {rateMsg && <p className="text-green-600 text-sm mt-2">{rateMsg}</p>}
+          </div>
+        )}
 
         {/* Legend */}
         <div className="bg-white rounded-xl shadow-sm p-6">

@@ -9,7 +9,7 @@ from app.models.employee import Employee
 from app.models.pay_adjustment import PayAdjustment
 from app.models.time_off import TimeOffRequest
 from app.models.scheduled_shift import ScheduledShift
-from app.routers.auth import require_manager
+from app.routers.auth import require_manager, require_super_admin
 from app.services.timestation import timestation
 
 router = APIRouter(prefix="/api/manager", tags=["manager"])
@@ -517,4 +517,39 @@ async def delete_pay_period(
     db.delete(pp)
     db.commit()
     return {"id": period_id, "status": "deleted"}
+
+
+# ── Hourly Rate Management (super admin only) ─────────────────
+
+class HourlyRateInput(BaseModel):
+    employee_id: str
+    hourly_rate: str  # e.g. "25.00"
+
+
+@router.put("/hourly-rate")
+async def set_hourly_rate(
+    req: HourlyRateInput,
+    user: dict = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Set an employee's private hourly rate. Only super admins can set it."""
+    emp = db.query(Employee).filter(Employee.timestation_id == req.employee_id).first()
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    emp.hourly_rate = req.hourly_rate
+    db.commit()
+    return {"employee_id": emp.timestation_id, "hourly_rate": emp.hourly_rate}
+
+
+@router.get("/hourly-rate/{employee_id}")
+async def get_hourly_rate(
+    employee_id: str,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Get an employee's hourly rate. Super admins and managers can see it."""
+    emp = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    return {"employee_id": emp.timestation_id, "name": emp.name, "hourly_rate": emp.hourly_rate}
 

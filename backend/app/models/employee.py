@@ -16,7 +16,7 @@ class Employee(Base):
     pin = Column(String, nullable=False, index=True)
     email = Column(String, nullable=True)
     status = Column(String, default="out")  # in/out from TimeStation
-    hourly_rate = Column(String, nullable=True)
-    role = Column(String, default="employee")  # employee / manager
+    role = Column(String, default="employee")  # employee / manager / super_admin
+    hourly_rate = Column(String, nullable=True)  # private rate set by super admins
     is_active = Column(Boolean, default=True)
     last_synced = Column(DateTime, nullable=True)
