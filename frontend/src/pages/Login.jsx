@@ -28,7 +28,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900">
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-2xl shadow-xl">
         <div className="text-center">
-          <img src="/allied-logo.jpg" alt="Allied Alliance Group Inc." className="mx-auto mb-2 w-48 h-auto" />
+          <img src="/allied-logo.jpg" alt="Allied Alliance Group Inc." className="mx-auto mb-2 w-[30%] h-auto" />
           <p className="mt-2 text-sm text-gray-600">
             Sign in with your PIN
           </p>
