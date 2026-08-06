@@ -611,3 +611,23 @@ async def get_hour_balance(
         "transactions": transactions,
     }
 
+
+class AssignPeriodInput(BaseModel):
+    pay_period_id: int | None = None
+
+
+@router.put("/hour-balance/transaction/{transaction_id}/assign-period")
+async def assign_transaction_period(
+    transaction_id: int,
+    req: AssignPeriodInput,
+    user: dict = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Assign a transaction to a pay period. Super admins only."""
+    txn = db.query(HourTransaction).filter(HourTransaction.id == transaction_id).first()
+    if not txn:
+        raise HTTPException(404, "Transaction not found")
+    txn.pay_period_id = req.pay_period_id
+    db.commit()
+    return {"transaction_id": transaction_id, "pay_period_id": req.pay_period_id}
+
