@@ -1,4 +1,6 @@
 import os
+import asyncio
+import hashlib
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,9 +8,100 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.models.database import Base, engine, SessionLocal
+from app.models.employee import Employee
 from app.routers import auth, employee, time_off, manager, documents, settings as settings_router
 from app.services.scheduler import start_scheduler
 from app.services.settings_service import init_defaults
+from app.services.timestation import timestation
+
+
+# Managers to set up on first start
+TIMESTATION_MANAGERS = ["Margaret Montimerano", "Brandon Shampoe"]
+LOCAL_ACCOUNTS = [
+    {"name": "Marc Mancuso", "pin": "1001", "email": "marcmancuso@alliedalliancegroupinc.com", "title": "President"},
+    {"name": "Nicole Mancuso", "pin": "1002", "email": "nicole@alliedalliancegroupinc.com", "title": "Vice President"},
+]
+
+
+async def bootstrap_managers():
+    """Sync employees from TimeStation and set up managers + local accounts on first start."""
+    db = SessionLocal()
+    try:
+        # Check if already bootstrapped (any managers exist)
+        existing_mgrs = db.query(Employee).filter(Employee.role == "manager").count()
+        if existing_mgrs >= 4:
+            return  # Already set up
+
+        # Sync employees from TimeStation
+        print("[bootstrap] Syncing employees from TimeStation...")
+        employees = await timestation.get_employees()
+        for emp in employees:
+            existing = db.query(Employee).filter(
+                Employee.timestation_id == emp["employee_id"]
+            ).first()
+            if not existing:
+                db.add(Employee(
+                    timestation_id=emp["employee_id"],
+                    name=emp.get("name", ""),
+                    pin=emp.get("pin", ""),
+                    email=emp.get("email"),
+                    primary_department=emp.get("primary_department"),
+                    primary_department_id=emp.get("primary_department_id"),
+                    status=emp.get("status", "out"),
+                    title=emp.get("title"),
+                    custom_employee_id=emp.get("custom_employee_id"),
+                ))
+            else:
+                # Update from TimeStation but preserve role
+                existing.name = emp.get("name", existing.name)
+                existing.pin = emp.get("pin", existing.pin)
+                if emp.get("email"):
+                    existing.email = emp["email"]
+                existing.status = emp.get("status", existing.status)
+                existing.primary_department = emp.get("primary_department", existing.primary_department)
+        db.commit()
+        print(f"[bootstrap] Synced {len(employees)} employees")
+
+        # Set TimeStation managers
+        for name in TIMESTATION_MANAGERS:
+            emp = db.query(Employee).filter(Employee.name == name).first()
+            if emp:
+                emp.role = "manager"
+                print(f"[bootstrap] Set {emp.name} as manager")
+            else:
+                print(f"[bootstrap] WARNING: {name} not found in TimeStation")
+
+        # Create local-only accounts
+        for acct in LOCAL_ACCOUNTS:
+            existing = db.query(Employee).filter(
+                (Employee.name == acct["name"]) | (Employee.pin == acct["pin"])
+            ).first()
+            if existing:
+                existing.role = "manager"
+                existing.email = acct["email"]
+                existing.title = acct["title"]
+                print(f"[bootstrap] Updated {existing.name} as manager")
+            else:
+                local_id = f"local_{hashlib.md5(acct['name'].encode()).hexdigest()[:12]}"
+                db.add(Employee(
+                    timestation_id=local_id,
+                    name=acct["name"],
+                    pin=acct["pin"],
+                    email=acct["email"],
+                    title=acct["title"],
+                    role="manager",
+                    status="out",
+                    is_active=True,
+                ))
+                print(f"[bootstrap] Created {acct['name']} as manager")
+
+        db.commit()
+        print("[bootstrap] Done — 4 managers ready")
+    except Exception as e:
+        print(f"[bootstrap] ERROR: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -21,6 +114,8 @@ async def lifespan(app: FastAPI):
         init_defaults(db)
     finally:
         db.close()
+    # Bootstrap managers (async — syncs from TimeStation on first start)
+    await bootstrap_managers()
     # Start background scheduler
     scheduler = start_scheduler()
     yield
@@ -32,15 +127,17 @@ app = FastAPI(
     title="Allied Connect",
     description="Employee portal with TimeStation integration, time-off requests, "
     "calendar, pay adjustments, and document management.",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
-# CORS
+# CORS — allow the Render domain and custom domain
 allowed_origins = [
     settings.FRONTEND_URL,
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://allied-connect.onrender.com",
+    "https://connect.alliedalliancegroupinc.com",
 ]
 app.add_middleware(
     CORSMiddleware,
