@@ -236,6 +236,30 @@ async def get_pay_period_data(
     back_hours = sum(float(a.hours) for a in adjustments if a.type == "back_hours")
     vacation_hours = sum(float(a.hours) for a in adjustments if a.type == "vacation_hours")
 
+    # Get hour transactions (deductions) within this pay period date range
+    from app.models.time_off import TimeOffRequest
+    from datetime import datetime as _dt
+    period_transactions = (
+        db.query(HourTransaction)
+        .filter(
+            HourTransaction.employee_id == user["timestation_id"],
+            HourTransaction.created_at >= _dt.combine(pp.start_date, _dt.min.time()),
+            HourTransaction.created_at <= _dt.combine(pp.end_date, _dt.max.time()),
+        )
+        .order_by(HourTransaction.created_at.desc())
+        .all()
+    )
+    hours_used = []
+    for t in period_transactions:
+        hours_used.append({
+            "type": t.type,
+            "amount": float(t.amount),
+            "action": t.action,
+            "reason": t.reason,
+            "input_by_name": t.input_by_name,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        })
+
     # Get employee's private hourly rate for gross pay calculation
     emp = db.query(Employee).filter(Employee.timestation_id == user["timestation_id"]).first()
     hourly_rate = float(emp.hourly_rate) if emp and emp.hourly_rate else None
@@ -265,6 +289,7 @@ async def get_pay_period_data(
         "vacation_hours": round(vacation_hours, 2),
         "hourly_rate": hourly_rate,
         "gross_pay": gross_pay,
+        "hours_used": hours_used,
         "calendar": calendar,
         "shifts": shifts,
     }

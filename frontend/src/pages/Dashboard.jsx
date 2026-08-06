@@ -272,6 +272,26 @@ export default function Dashboard() {
                       </p>
                     </div>
                   )}
+                  {ppData.hours_used && ppData.hours_used.length > 0 && (
+                    <div className="col-span-2 md:col-span-6 mt-2">
+                      <p className="text-sm font-semibold mb-1">Hours Used This Period</p>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {ppData.hours_used.map((h, i) => (
+                          <div key={i} className="flex justify-between items-center p-2 bg-gray-50 rounded text-xs">
+                            <div>
+                              <span className={h.action === 'added' ? 'text-green-700' : 'text-red-700'}>
+                                {h.action === 'added' ? '+' : ''}{h.amount}h {h.type.replace('_', ' ')}
+                              </span>
+                              <span className="ml-2 text-gray-500">
+                                by {h.input_by_name || 'system'} · {h.created_at ? new Date(h.created_at).toLocaleString() : ''}
+                              </span>
+                              {h.reason && <span className="ml-1 text-gray-400">— {h.reason}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

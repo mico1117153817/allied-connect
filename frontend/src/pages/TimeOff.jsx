@@ -19,14 +19,14 @@ export default function TimeOff() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-time-off'],
-    queryFn: () => api.get('/api/time-off').then(r => {
+    queryFn: () => api.get('/api/time-off/').then(r => {
       const d = r.data
       return Array.isArray(d) ? { requests: d } : d
     }),
   })
 
   const createMutation = useMutation({
-    mutationFn: (data) => api.post('/api/time-off', data),
+    mutationFn: (data) => api.post('/api/time-off/', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-time-off'] })
       setShowForm(false)
