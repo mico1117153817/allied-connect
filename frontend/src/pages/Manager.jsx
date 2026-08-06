@@ -60,7 +60,10 @@ export default function Manager() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">Allied Connect — Manager</h1>
+          <div className="flex items-center gap-3">
+            <img src="/allied-logo.jpg" alt="Allied" className="h-10 w-auto rounded" />
+            <h1 className="text-xl font-bold">Allied Connect — Manager</h1>
+          </div>
           <div className="flex items-center gap-4">
             <a href="/dashboard" className="text-sm text-blue-600 hover:underline">Employee View</a>
             <a href="/manage-documents" className="text-sm text-blue-600 hover:underline">Documents</a>

@@ -53,7 +53,10 @@ export default function TimeOff() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">Time Off Requests</h1>
+          <div className="flex items-center gap-3">
+            <img src="/allied-logo.jpg" alt="Allied" className="h-10 w-auto rounded" />
+            <h1 className="text-xl font-bold">Time Off Requests</h1>
+          </div>
           <div className="flex items-center gap-4">
             <a href="/dashboard" className="text-sm text-blue-600 hover:underline">← Dashboard</a>
             <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
