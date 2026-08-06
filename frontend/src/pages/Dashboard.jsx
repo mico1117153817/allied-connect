@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [emailInput, setEmailInput] = useState('')
   const [emailMsg, setEmailMsg] = useState('')
   const [selectedDay, setSelectedDay] = useState(null)
+  const [selectedPpId, setSelectedPpId] = useState('')
 
   // Get current month date range
   const now = new Date()
@@ -32,6 +33,18 @@ export default function Dashboard() {
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: () => api.get('/api/me/').then(r => r.data),
+  })
+
+  // Pay periods
+  const { data: ppList } = useQuery({
+    queryKey: ['pay-periods'],
+    queryFn: () => api.get('/api/me/pay-periods').then(r => r.data),
+  })
+
+  const { data: ppData, isLoading: ppLoading } = useQuery({
+    queryKey: ['pay-period-detail', selectedPpId],
+    queryFn: () => api.get(`/api/me/pay-period/${selectedPpId}`).then(r => r.data),
+    enabled: !!selectedPpId,
   })
 
   const emailMutation = useMutation({
@@ -143,6 +156,55 @@ export default function Dashboard() {
           <a href="/time-off" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Request Time Off</a>
           <a href="/documents" className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Documents</a>
         </div>
+
+        {/* Pay Period Selector */}
+        {ppList?.pay_periods?.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-3">Pay Period</h2>
+            <div className="flex flex-wrap gap-4 items-center">
+              <select
+                value={selectedPpId}
+                onChange={(e) => setSelectedPpId(e.target.value)}
+                className="px-4 py-2 border rounded-lg min-w-48"
+              >
+                <option value="">Select a pay period...</option>
+                {ppList.pay_periods.map(pp => (
+                  <option key={pp.id} value={pp.id}>
+                    {pp.label} — Pay: {pp.pay_date} ({pp.start_date} → {pp.end_date})
+                  </option>
+                ))}
+              </select>
+              {ppData && (
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3 flex-1">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Total Hours</p>
+                    <p className="text-xl font-bold text-blue-600">{ppData.total_hours}</p>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Days Worked</p>
+                    <p className="text-xl font-bold text-green-600">{ppData.days_worked}</p>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Late</p>
+                    <p className="text-xl font-bold text-red-600">{ppData.late_arrivals}</p>
+                  </div>
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Left Early</p>
+                    <p className="text-xl font-bold text-yellow-600">{ppData.left_early}</p>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Back Hours</p>
+                    <p className="text-xl font-bold text-purple-600">{ppData.back_hours}</p>
+                  </div>
+                  <div className="bg-indigo-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Vac Hours</p>
+                    <p className="text-xl font-bold text-indigo-600">{ppData.vacation_hours}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Calendar */}
         <div className="bg-white rounded-xl shadow-sm p-6">

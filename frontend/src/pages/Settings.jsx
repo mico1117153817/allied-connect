@@ -25,6 +25,7 @@ export default function Settings() {
     6: { start: '', end: '' },
   })
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [ppForm, setPpForm] = useState({ pay_date: '', label: '', start_date: '', end_date: '' })
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -40,6 +41,11 @@ export default function Settings() {
     queryKey: ['schedule', scheduleEmpId],
     queryFn: () => api.get(`/api/manager/scheduled-shifts/${scheduleEmpId}`).then(r => r.data),
     enabled: !!scheduleEmpId,
+  })
+
+  const { data: ppData, isLoading: ppLoading } = useQuery({
+    queryKey: ['pay-periods-mgr'],
+    queryFn: () => api.get('/api/manager/pay-periods').then(r => r.data),
   })
 
   const updateMutation = useMutation({
@@ -193,7 +199,112 @@ export default function Settings() {
           )}
         </div>
 
-        {/* Bulk Schedule — Set for All Employees */}
+        {/* Pay Period Management */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold mb-2">Pay Periods</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Create pay periods so employees can view their hours by pay cycle. Pay dates are typically the 8th and 22nd of each month.
+          </p>
+
+          {/* Create form */}
+          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <h3 className="text-sm font-medium mb-3">Add Pay Period</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Pay Date</label>
+                <input
+                  type="date"
+                  value={ppForm.pay_date}
+                  onChange={(e) => setPpForm({ ...ppForm, pay_date: e.target.value })}
+                  className="w-full px-3 py-2 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Label (e.g. 8/8)</label>
+                <input
+                  type="text"
+                  value={ppForm.label}
+                  onChange={(e) => setPpForm({ ...ppForm, label: e.target.value })}
+                  placeholder="8/8"
+                  className="w-full px-3 py-2 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={ppForm.start_date}
+                  onChange={(e) => setPpForm({ ...ppForm, start_date: e.target.value })}
+                  className="w-full px-3 py-2 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={ppForm.end_date}
+                  onChange={(e) => setPpForm({ ...ppForm, end_date: e.target.value })}
+                  className="w-full px-3 py-2 border rounded text-sm"
+                />
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                if (!ppForm.pay_date || !ppForm.label || !ppForm.start_date || !ppForm.end_date) {
+                  setMsg('Please fill in all fields')
+                  return
+                }
+                try {
+                  await api.post('/api/manager/pay-periods', ppForm)
+                  setMsg('Pay period saved!')
+                  setPpForm({ pay_date: '', label: '', start_date: '', end_date: '' })
+                  qc.invalidateQueries({ queryKey: ['pay-periods-mgr'] })
+                } catch (err) {
+                  setMsg('Failed to save pay period')
+                }
+              }}
+              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+            >
+              Add Pay Period
+            </button>
+          </div>
+
+          {/* Existing periods */}
+          {ppLoading ? (
+            <p className="text-gray-500">Loading...</p>
+          ) : ppData?.pay_periods?.length === 0 ? (
+            <p className="text-gray-400 text-center py-4">No pay periods created yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {ppData?.pay_periods?.map(p => (
+                <div key={p.id} className="flex justify-between items-center p-3 border rounded-lg">
+                  <div>
+                    <span className="font-medium text-sm">{p.label}</span>
+                    <span className="ml-3 text-sm text-gray-500">
+                      Pay: {p.pay_date} · Period: {p.start_date} → {p.end_date}
+                    </span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.delete(`/api/manager/pay-periods/${p.id}`)
+                        qc.invalidateQueries({ queryKey: ['pay-periods-mgr'] })
+                        setMsg('Pay period deleted')
+                      } catch (err) {
+                        setMsg('Failed to delete')
+                      }
+                    }}
+                    className="text-red-500 text-sm hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Schedule Management */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-2">Set Default Schedule for All Employees</h2>
           <p className="text-sm text-gray-600 mb-4">

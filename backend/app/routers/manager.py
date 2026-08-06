@@ -444,3 +444,77 @@ async def get_employee_calendar(
         "days": calendar,
     }
 
+
+# ── Pay Period Management ──────────────────────────────────────
+
+from app.models.pay_period import PayPeriod as PayPeriodModel
+
+
+class PayPeriodInput(BaseModel):
+    pay_date: date
+    label: str  # e.g. "8/8" or "8/22"
+    start_date: date
+    end_date: date
+
+
+@router.get("/pay-periods")
+async def list_pay_periods(
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """List all pay periods, newest first."""
+    periods = db.query(PayPeriodModel).order_by(PayPeriodModel.pay_date.desc()).all()
+    return {
+        "pay_periods": [
+            {
+                "id": p.id,
+                "pay_date": p.pay_date.isoformat(),
+                "label": p.label,
+                "start_date": p.start_date.isoformat(),
+                "end_date": p.end_date.isoformat(),
+                "is_active": p.is_active,
+            }
+            for p in periods
+        ]
+    }
+
+
+@router.post("/pay-periods")
+async def create_pay_period(
+    req: PayPeriodInput,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Create a pay period. If one already exists for this pay_date, update it."""
+    existing = db.query(PayPeriodModel).filter(PayPeriodModel.pay_date == req.pay_date).first()
+    if existing:
+        existing.label = req.label
+        existing.start_date = req.start_date
+        existing.end_date = req.end_date
+        db.commit()
+        return {"id": existing.id, "status": "updated"}
+    pp = PayPeriodModel(
+        pay_date=req.pay_date,
+        label=req.label,
+        start_date=req.start_date,
+        end_date=req.end_date,
+        created_by=user["timestation_id"],
+    )
+    db.add(pp)
+    db.commit()
+    return {"id": pp.id, "status": "created"}
+
+
+@router.delete("/pay-periods/{period_id}")
+async def delete_pay_period(
+    period_id: int,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    pp = db.query(PayPeriodModel).filter(PayPeriodModel.id == period_id).first()
+    if not pp:
+        raise HTTPException(404, "Pay period not found")
+    db.delete(pp)
+    db.commit()
+    return {"id": period_id, "status": "deleted"}
+

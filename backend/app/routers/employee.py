@@ -1,4 +1,4 @@
-"""Employee dashboard API: profile, hours, calendar, pay summary, email update."""
+"""Employee dashboard API: profile, hours, calendar, pay summary, email update, pay periods."""
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
@@ -9,6 +9,7 @@ from app.models.database import get_db
 from app.models.employee import Employee
 from app.models.scheduled_shift import ScheduledShift
 from app.models.pay_adjustment import PayAdjustment
+from app.models.pay_period import PayPeriod
 from app.services.timestation import timestation
 from app.services.calendar import build_calendar_data
 from app.services.settings_service import get_setting
@@ -164,4 +165,94 @@ async def update_email(
     return {
         "timestation_id": employee.timestation_id,
         "email": employee.email,
+    }
+
+
+# ── Pay Periods (employee view) ───────────────────────────────
+
+@router.get("/pay-periods")
+async def list_pay_periods(
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List all available pay periods for the employee to select from."""
+    periods = db.query(PayPeriod).filter(PayPeriod.is_active == True).order_by(PayPeriod.pay_date.desc()).all()
+    return {
+        "pay_periods": [
+            {
+                "id": p.id,
+                "pay_date": p.pay_date.isoformat(),
+                "label": p.label,
+                "start_date": p.start_date.isoformat(),
+                "end_date": p.end_date.isoformat(),
+            }
+            for p in periods
+        ]
+    }
+
+
+@router.get("/pay-period/{period_id}")
+async def get_pay_period_data(
+    period_id: int,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get hours, calendar, and pay adjustments for a specific pay period."""
+    pp = db.query(PayPeriod).filter(PayPeriod.id == period_id).first()
+    if not pp:
+        raise HTTPException(404, "Pay period not found")
+
+    start_str = pp.start_date.isoformat()
+    end_str = pp.end_date.isoformat()
+
+    # Get shifts from TimeStation
+    shifts = await timestation.get_shifts(user["timestation_id"], start_str, end_str)
+    total_minutes = sum(int(s.get("total_minutes", 0) or 0) for s in shifts)
+
+    # Get scheduled shifts for calendar
+    scheduled_shifts = (
+        db.query(ScheduledShift)
+        .filter(ScheduledShift.employee_id == user["timestation_id"])
+        .all()
+    )
+    threshold_str = get_setting(db, "late_threshold_minutes")
+    threshold = int(threshold_str) if threshold_str else settings.LATE_THRESHOLD_MINUTES
+    early_str = get_setting(db, "early_leave_threshold_minutes")
+    early_threshold = int(early_str) if early_str else threshold
+    calendar = build_calendar_data(shifts, scheduled_shifts, start_str, end_str,
+                                   late_threshold_minutes=threshold, early_leave_threshold_minutes=early_threshold)
+
+    # Get pay adjustments for this pay date
+    adjustments = (
+        db.query(PayAdjustment)
+        .filter(
+            PayAdjustment.employee_id == user["timestation_id"],
+            PayAdjustment.pay_date == pp.pay_date,
+        )
+        .all()
+    )
+    back_hours = sum(float(a.hours) for a in adjustments if a.type == "back_hours")
+    vacation_hours = sum(float(a.hours) for a in adjustments if a.type == "vacation_hours")
+
+    # Stats
+    worked_days = [d for d in calendar if d["worked"]]
+    late_days = [d for d in calendar if d["is_late"]]
+    early_days = [d for d in calendar if d["is_early_leave"]]
+
+    return {
+        "pay_period": {
+            "id": pp.id,
+            "label": pp.label,
+            "pay_date": pp.pay_date.isoformat(),
+            "start_date": start_str,
+            "end_date": end_str,
+        },
+        "total_hours": round(total_minutes / 60.0, 2),
+        "days_worked": len(worked_days),
+        "late_arrivals": len(late_days),
+        "left_early": len(early_days),
+        "back_hours": round(back_hours, 2),
+        "vacation_hours": round(vacation_hours, 2),
+        "calendar": calendar,
+        "shifts": shifts,
     }
