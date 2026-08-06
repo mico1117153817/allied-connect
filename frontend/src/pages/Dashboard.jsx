@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [monthOffset, setMonthOffset] = useState(0)
   const [emailInput, setEmailInput] = useState('')
   const [emailMsg, setEmailMsg] = useState('')
+  const [selectedDay, setSelectedDay] = useState(null)
 
   // Get current month date range
   const now = new Date()
@@ -46,6 +47,7 @@ export default function Dashboard() {
   const days = calData?.days || []
   const workedDays = days.filter(d => d.worked)
   const lateDays = days.filter(d => d.is_late)
+  const earlyLeaveDays = days.filter(d => d.is_early_leave)
   const monthName = targetMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   // Build calendar grid
@@ -57,6 +59,19 @@ export default function Dashboard() {
     const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
     calendarCells.push(days.find(day => day.date === dateStr) || { date: dateStr, worked: false })
   }
+
+  // Determine cell background color
+  const cellBg = (cell) => {
+    if (!cell) return 'bg-gray-50 border-gray-100'
+    if (cell.is_missed) return 'bg-orange-100 border-orange-400'
+    if (cell.is_late) return 'bg-red-100 border-red-400'
+    if (cell.is_early_leave) return 'bg-yellow-100 border-yellow-400'
+    if (cell.worked) return 'bg-green-100 border-green-300'
+    return 'bg-white border-gray-200'
+  }
+
+  // Format time from ISO string
+  const fmtTime = (iso) => iso ? iso.slice(11, 16) : '--'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -118,8 +133,8 @@ export default function Dashboard() {
             <p className="text-2xl font-bold text-red-600">{lateDays.length}</p>
           </div>
           <div className="bg-white p-5 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-500">Department</p>
-            <p className="text-lg font-bold text-gray-700">{employee?.department || '—'}</p>
+            <p className="text-sm text-gray-500">Left Early</p>
+            <p className="text-2xl font-bold text-yellow-600">{earlyLeaveDays.length}</p>
           </div>
         </div>
 
@@ -153,13 +168,11 @@ export default function Dashboard() {
                 {calendarCells.map((cell, i) => (
                   <div
                     key={i}
+                    onClick={() => cell && setSelectedDay(cell)}
                     className={[
-                      'min-h-20 p-1 rounded border text-xs',
-                      !cell && 'bg-gray-50 border-gray-100',
-                      cell && !cell.worked && !cell.is_missed && 'bg-white border-gray-200',
-                      cell && cell.worked && !cell.is_late && 'bg-green-50 border-green-200',
-                      cell?.is_late && 'bg-red-50 border-red-200',
-                      cell?.is_missed && 'bg-orange-50 border-orange-300',
+                      'min-h-20 p-1 rounded border text-xs transition',
+                      cellBg(cell),
+                      cell && 'cursor-pointer hover:ring-2 hover:ring-blue-300',
                     ].filter(Boolean).join(' ')}
                   >
                     {cell && (
@@ -167,13 +180,13 @@ export default function Dashboard() {
                         <div className="font-medium text-gray-700">{parseInt(cell.date.slice(-2))}</div>
                         {cell.worked && (
                           <div className="mt-1">
-                            <div className="text-green-700 font-medium">{cell.total_hours}h</div>
-                            {cell.is_late && <div className="text-red-600">Late {cell.late_minutes}m</div>}
-                            {cell.is_early_leave && <div className="text-yellow-600">Left early {cell.early_leave_minutes}m</div>}
+                            <div className="text-gray-800 font-medium">{cell.total_hours}h</div>
+                            {cell.is_late && <div className="text-red-700">Late {cell.late_minutes}m</div>}
+                            {cell.is_early_leave && <div className="text-yellow-800">Early {cell.early_leave_minutes}m</div>}
                           </div>
                         )}
                         {cell.is_missed && !cell.worked && (
-                          <div className="mt-1 text-orange-600 font-medium">Missed</div>
+                          <div className="mt-1 text-orange-700 font-medium">Missed</div>
                         )}
                       </>
                     )}
@@ -182,39 +195,91 @@ export default function Dashboard() {
               </div>
               <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-600">
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-100 border border-green-300 rounded"></span> Worked</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-100 border border-red-300 rounded"></span> Late</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-orange-100 border border-orange-300 rounded"></span> Missed</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-100 border border-red-400 rounded"></span> Late</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-100 border border-yellow-400 rounded"></span> Left early</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-orange-100 border border-orange-400 rounded"></span> Missed</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-white border border-gray-300 rounded"></span> Not worked</span>
               </div>
+              <p className="text-xs text-gray-400 mt-2">Click any day to see punch in/out times</p>
             </>
           )}
         </div>
+      </div>
 
-        {/* Shift details for worked days */}
-        {workedDays.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
-            <h2 className="text-lg font-semibold mb-3">Recent Shifts</h2>
-            <div className="space-y-2">
-              {workedDays.slice(-5).reverse().map(day => (
-                <div key={day.date} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <span className="font-medium">{day.date}</span>
-                    {day.is_late && <span className="ml-2 text-red-600 text-sm">⚠ {day.late_minutes}m late</span>}
+      {/* Day Detail Modal */}
+      {selectedDay && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedDay(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">
+                {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </h3>
+              <button onClick={() => setSelectedDay(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+
+            {selectedDay.worked ? (
+              <div className="space-y-3">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Total Hours</span>
+                    <span className="font-bold text-blue-600">{selectedDay.total_hours}h</span>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    {day.shifts.map((s, i) => (
-                      <div key={i}>
-                        {s.in?.slice(11, 16)} → {s.out?.slice(11, 16)} ({(s.minutes / 60).toFixed(1)}h)
+                </div>
+
+                {selectedDay.is_late && (
+                  <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                    <p className="text-red-700 text-sm font-medium">⚠ Arrived {selectedDay.late_minutes} minutes late</p>
+                  </div>
+                )}
+                {selectedDay.is_early_leave && (
+                  <div className="bg-yellow-50 border border-yellow-300 p-3 rounded-lg">
+                    <p className="text-yellow-800 text-sm font-medium">⏰ Left {selectedDay.early_leave_minutes} minutes early</p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Punches</p>
+                  <div className="space-y-2">
+                    {selectedDay.shifts.map((s, i) => (
+                      <div key={i} className="flex justify-between items-center p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">IN</span>
+                          <span className="text-sm">{fmtTime(s.in)}</span>
+                        </div>
+                        <div className="text-gray-400">→</div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm">{fmtTime(s.out)}</span>
+                          <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">OUT</span>
+                        </div>
+                        <div className="text-sm text-gray-600 font-medium">{(s.minutes / 60).toFixed(1)}h</div>
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                {selectedDay.is_missed ? (
+                  <div>
+                    <p className="text-orange-600 font-medium mb-2">📅 Scheduled but did not work</p>
+                    <p className="text-gray-500 text-sm">This day was scheduled but no punches were recorded.</p>
+                  </div>
+                ) : selectedDay.is_scheduled ? (
+                  <p className="text-gray-500">Not scheduled to work this day.</p>
+                ) : (
+                  <p className="text-gray-500">No shifts recorded for this day.</p>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
