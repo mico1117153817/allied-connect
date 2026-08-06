@@ -8,6 +8,10 @@ from app.models.database import get_db
 from app.models.employee import Employee
 from app.models.pay_adjustment import PayAdjustment
 from app.models.time_off import TimeOffRequest
+from app.models.hour_balance import HourBalance, HourTransaction
+from app.services.hour_balance_service import (
+    add_hours, get_balance, get_all_balances, get_transaction_history, deduct_hours
+)
 from app.models.scheduled_shift import ScheduledShift
 from app.routers.auth import require_manager, require_super_admin
 from app.services.timestation import timestation
@@ -552,4 +556,56 @@ async def get_hourly_rate(
     if not emp:
         raise HTTPException(404, "Employee not found")
     return {"employee_id": emp.timestation_id, "name": emp.name, "hourly_rate": emp.hourly_rate}
+
+
+# ── Hour Balance Management (super admin only) ────────────────
+
+class AddHoursInput(BaseModel):
+    employee_id: str
+    type: str  # back_hours, vacation_hours, sick_hours
+    amount: float
+    reason: str | None = None
+
+
+@router.post("/hour-balance/add")
+async def add_hour_balance(
+    req: AddHoursInput,
+    user: dict = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Add hours to an employee's balance. Super admins only (Marc/Nicole)."""
+    if req.type not in ("back_hours", "vacation_hours", "sick_hours"):
+        raise HTTPException(400, "Type must be back_hours, vacation_hours, or sick_hours")
+    if req.amount <= 0:
+        raise HTTPException(400, "Amount must be positive")
+    emp = db.query(Employee).filter(Employee.timestation_id == req.employee_id).first()
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    result = add_hours(
+        db, req.employee_id, req.type, req.amount,
+        input_by=user["timestation_id"],
+        input_by_name=user["name"],
+        reason=req.reason,
+    )
+    return result
+
+
+@router.get("/hour-balance/{employee_id}")
+async def get_hour_balance(
+    employee_id: str,
+    user: dict = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Get an employee's hour balances + full transaction history. Super admins only."""
+    emp = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    balances = get_all_balances(db, employee_id)
+    transactions = get_transaction_history(db, employee_id)
+    return {
+        "employee_id": employee_id,
+        "name": emp.name,
+        "balances": balances,
+        "transactions": transactions,
+    }
 

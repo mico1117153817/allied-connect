@@ -4,8 +4,8 @@ Endpoints
 ---------
 - POST   /api/time-off/            -> employee creates a request (status=pending)
 - GET    /api/time-off/            -> employee lists their own requests (newest first)
-- GET    /api/time-off/all         -> manager lists all requests, optionally filtered by status, includes employee name
-- PUT    /api/time-off/{id}/review -> manager approves/denies a request, sends email to employee
+- GET    /api/time-off/all         -> manager lists all requests, optionally filtered by status
+- PUT    /api/time-off/{id}/review -> manager approves/denies, deducts hours, sends email
 """
 
 from datetime import datetime, date
@@ -21,18 +21,18 @@ from app.models.employee import Employee
 from app.models.time_off import TimeOffRequest
 from app.routers.auth import get_current_user, require_manager
 from app.services.email import send_time_off_notification
+from app.services.hour_balance_service import get_balance, deduct_hours
 
 router = APIRouter(prefix="/api/time-off", tags=["time-off"])
 
 
-# ---------------------------------------------------------------------------
-# Schemas
-# ---------------------------------------------------------------------------
 class TimeOffCreate(BaseModel):
-    request_type: str = Field(..., description="vacation | sick | personal | unpaid")
+    request_type: str = Field(..., description="vacation | sick | personal | unpaid | back_hours")
     start_date: date
     end_date: date
     reason: Optional[str] = None
+    hour_type: Optional[str] = Field(None, description="back_hours | vacation_hours | sick_hours")
+    hours_requested: Optional[float] = Field(None, description="Number of hours to use from balance")
 
 
 class TimeOffReview(BaseModel):
@@ -51,14 +51,14 @@ class TimeOffOut(BaseModel):
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    hour_type: Optional[str] = None
+    hours_requested: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-VALID_REQUEST_TYPES = {"vacation", "sick", "personal", "unpaid"}
+VALID_REQUEST_TYPES = {"vacation", "sick", "personal", "unpaid", "back_hours"}
+VALID_HOUR_TYPES = {"back_hours", "vacation_hours", "sick_hours"}
 VALID_REVIEW_STATUSES = {"approved", "denied"}
 
 
@@ -75,6 +75,8 @@ def _serialize(req: TimeOffRequest, employee_name: Optional[str] = None) -> dict
         "reviewed_by": req.reviewed_by,
         "reviewed_at": req.reviewed_at,
         "created_at": req.created_at,
+        "hour_type": req.hour_type,
+        "hours_requested": float(req.hours_requested) if req.hours_requested else None,
     }
 
 
@@ -93,6 +95,17 @@ def create_request(
     if payload.end_date < payload.start_date:
         raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
 
+    # Validate hour type + amount if using hours
+    if payload.hour_type:
+        if payload.hour_type not in VALID_HOUR_TYPES:
+            raise HTTPException(400, f"hour_type must be one of {VALID_HOUR_TYPES}")
+        if not payload.hours_requested or payload.hours_requested <= 0:
+            raise HTTPException(400, "hours_requested must be positive when hour_type is specified")
+        # Check they have enough balance
+        current = get_balance(db, user["timestation_id"], payload.hour_type)
+        if current < payload.hours_requested:
+            raise HTTPException(400, f"Insufficient {payload.hour_type} balance: have {current}, requested {payload.hours_requested}")
+
     req = TimeOffRequest(
         employee_id=user["timestation_id"],
         request_type=payload.request_type,
@@ -100,6 +113,8 @@ def create_request(
         end_date=payload.end_date,
         reason=payload.reason,
         status="pending",
+        hour_type=payload.hour_type,
+        hours_requested=payload.hours_requested,
     )
     db.add(req)
     db.commit()
@@ -150,7 +165,7 @@ def review_request(
     db: Session = Depends(get_db),
     user: dict = Depends(require_manager),
 ):
-    """Manager: approve or deny a time-off request, then notify the employee by email."""
+    """Manager: approve or deny a time-off request, deduct hours if approved, notify by email."""
     if payload.status not in VALID_REVIEW_STATUSES:
         raise HTTPException(
             status_code=400,
@@ -169,7 +184,24 @@ def review_request(
     db.commit()
     db.refresh(req)
 
-    # Look up the employee to get name/email for notification.
+    # If approved and hours were requested, deduct from balance
+    if payload.status == "approved" and req.hour_type and req.hours_requested:
+        try:
+            deduct_hours(
+                db,
+                employee_id=req.employee_id,
+                type=req.hour_type,
+                amount=float(req.hours_requested),
+                input_by=user["timestation_id"],
+                input_by_name=user["name"],
+                reason=f"Time-off request #{req.id} approved ({req.start_date} to {req.end_date})",
+                time_off_request_id=req.id,
+            )
+        except ValueError as e:
+            # If balance is insufficient, note it but don't block the approval
+            print(f"[time-off] WARNING: Could not deduct hours: {e}")
+
+    # Look up the employee for notification
     emp = db.execute(
         select(Employee).where(Employee.timestation_id == req.employee_id)
     ).scalars().first()
@@ -178,7 +210,6 @@ def review_request(
 
     if employee_email:
         import asyncio
-
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(
@@ -192,7 +223,6 @@ def review_request(
                 )
             )
         except RuntimeError:
-            # No running event loop (e.g. when called via sync TestClient)
             asyncio.run(
                 send_time_off_notification(
                     to_email=employee_email,

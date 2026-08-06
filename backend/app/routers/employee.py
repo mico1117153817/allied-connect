@@ -10,9 +10,11 @@ from app.models.employee import Employee
 from app.models.scheduled_shift import ScheduledShift
 from app.models.pay_adjustment import PayAdjustment
 from app.models.pay_period import PayPeriod
+from app.models.hour_balance import HourBalance, HourTransaction
 from app.services.timestation import timestation
 from app.services.calendar import build_calendar_data
 from app.services.settings_service import get_setting
+from app.services.hour_balance_service import get_all_balances, get_transaction_history
 from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/api/me", tags=["employee"])
@@ -265,4 +267,33 @@ async def get_pay_period_data(
         "gross_pay": gross_pay,
         "calendar": calendar,
         "shifts": shifts,
+    }
+
+
+# ── Hour Balances (employee sees their own) ───────────────────
+
+@router.get("/balances")
+async def get_my_balances(
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the current employee's hour balances (back, vacation, sick)."""
+    balances = get_all_balances(db, user["timestation_id"])
+    return {
+        "employee_id": user["timestation_id"],
+        "balances": balances,
+    }
+
+
+@router.get("/balance-history")
+async def get_my_balance_history(
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the current employee's full transaction history with date/time stamps."""
+    transactions = get_transaction_history(db, user["timestation_id"])
+    balances = get_all_balances(db, user["timestation_id"])
+    return {
+        "balances": balances,
+        "transactions": transactions,
     }

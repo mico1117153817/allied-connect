@@ -47,6 +47,17 @@ export default function Dashboard() {
     enabled: !!selectedPpId,
   })
 
+  // Hour balances
+  const { data: balancesData } = useQuery({
+    queryKey: ['balances'],
+    queryFn: () => api.get('/api/me/balances').then(r => r.data),
+  })
+
+  const { data: balanceHistory } = useQuery({
+    queryKey: ['balance-history'],
+    queryFn: () => api.get('/api/me/balance-history').then(r => r.data),
+  })
+
   const emailMutation = useMutation({
     mutationFn: (email) => api.put('/api/me/email', { email }),
     onSuccess: () => {
@@ -161,6 +172,49 @@ export default function Dashboard() {
           <a href="/time-off" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Request Time Off</a>
           <a href="/documents" className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Documents</a>
         </div>
+
+        {/* Hour Balances */}
+        {balancesData?.balances && (
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4">My Hour Balances</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Back Hours</p>
+                <p className="text-2xl font-bold text-purple-600">{balancesData.balances.back_hours || 0}h</p>
+              </div>
+              <div className="bg-indigo-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Vacation Hours</p>
+                <p className="text-2xl font-bold text-indigo-600">{balancesData.balances.vacation_hours || 0}h</p>
+              </div>
+              <div className="bg-teal-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Sick Hours</p>
+                <p className="text-2xl font-bold text-teal-600">{balancesData.balances.sick_hours || 0}h</p>
+              </div>
+            </div>
+
+            {/* Transaction History */}
+            {balanceHistory?.transactions?.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-2">Transaction History</h3>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {balanceHistory.transactions.map(t => (
+                    <div key={t.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
+                      <div>
+                        <span className={`font-medium ${t.action === 'added' ? 'text-green-700' : 'text-red-700'}`}>
+                          {t.action === 'added' ? '+' : ''}{t.amount}h {t.type.replace('_', ' ')}
+                        </span>
+                        <span className="ml-2 text-gray-500 text-xs">
+                          by {t.input_by_name || 'system'} · {t.created_at ? new Date(t.created_at).toLocaleString() : ''}
+                        </span>
+                        {t.reason && <span className="ml-2 text-gray-400 text-xs">— {t.reason}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Pay Period Selector */}
         {ppList?.pay_periods?.length > 0 && (

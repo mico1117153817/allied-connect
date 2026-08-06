@@ -29,6 +29,10 @@ export default function Settings() {
   const [rateEmpId, setRateEmpId] = useState('')
   const [rateValue, setRateValue] = useState('')
   const [rateMsg, setRateMsg] = useState('')
+  const [hbEmpId, setHbEmpId] = useState('')
+  const [hbData, setHbData] = useState(null)
+  const [hbForm, setHbForm] = useState({ type: 'back_hours', amount: '', reason: '' })
+  const [hbMsg, setHbMsg] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -476,6 +480,142 @@ export default function Settings() {
             </div>
           )}
         </div>
+
+        {/* Hour Balance Management (super admin only) */}
+        {isSuperAdmin() && (
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-2">Employee Hour Balances</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Add back hours, vacation hours, or sick hours to an employee's balance. Every addition is logged with your name and timestamp.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Employee</label>
+              <select
+                value={hbEmpId}
+                onChange={async (e) => {
+                  setHbEmpId(e.target.value)
+                  if (e.target.value) {
+                    const resp = await api.get(`/api/manager/hour-balance/${e.target.value}`)
+                    setHbData(resp.data)
+                  }
+                }}
+                className="px-4 py-2 border rounded-lg min-w-64"
+              >
+                <option value="">Choose an employee...</option>
+                {empData?.employees?.map(e => (
+                  <option key={e.timestation_id} value={e.timestation_id}>
+                    {e.name} — {e.department}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {hbEmpId && hbData && (
+              <>
+                {/* Current balances */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Back Hours</p>
+                    <p className="text-xl font-bold text-purple-600">{hbData.balances.back_hours || 0}h</p>
+                  </div>
+                  <div className="bg-indigo-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Vacation Hours</p>
+                    <p className="text-xl font-bold text-indigo-600">{hbData.balances.vacation_hours || 0}h</p>
+                  </div>
+                  <div className="bg-teal-50 p-3 rounded-lg">
+                    <p className="text-xs text-gray-500">Sick Hours</p>
+                    <p className="text-xl font-bold text-teal-600">{hbData.balances.sick_hours || 0}h</p>
+                  </div>
+                </div>
+
+                {/* Add hours form */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <h3 className="text-sm font-medium mb-3">Add Hours</h3>
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Type</label>
+                      <select
+                        value={hbForm.type}
+                        onChange={(e) => setHbForm({ ...hbForm, type: e.target.value })}
+                        className="px-3 py-2 border rounded text-sm"
+                      >
+                        <option value="back_hours">Back Hours</option>
+                        <option value="vacation_hours">Vacation Hours</option>
+                        <option value="sick_hours">Sick Hours</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Amount (hours)</label>
+                      <input
+                        type="number"
+                        step="0.25"
+                        min="0.25"
+                        value={hbForm.amount}
+                        onChange={(e) => setHbForm({ ...hbForm, amount: e.target.value })}
+                        className="w-32 px-3 py-2 border rounded text-sm"
+                        placeholder="8"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-48">
+                      <label className="block text-xs text-gray-500 mb-1">Reason (optional)</label>
+                      <input
+                        type="text"
+                        value={hbForm.reason}
+                        onChange={(e) => setHbForm({ ...hbForm, reason: e.target.value })}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                        placeholder="Overtime from last week"
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.post('/api/manager/hour-balance/add', {
+                            employee_id: hbEmpId,
+                            type: hbForm.type,
+                            amount: parseFloat(hbForm.amount),
+                            reason: hbForm.reason || null,
+                          })
+                          setHbMsg('Hours added!')
+                          const resp = await api.get(`/api/manager/hour-balance/${hbEmpId}`)
+                          setHbData(resp.data)
+                          setHbForm({ type: 'back_hours', amount: '', reason: '' })
+                        } catch (err) {
+                          setHbMsg('Failed to add hours')
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    >
+                      Add Hours
+                    </button>
+                  </div>
+                  {hbMsg && <p className="text-green-600 text-sm mt-2">{hbMsg}</p>}
+                </div>
+
+                {/* Transaction history */}
+                {hbData.transactions?.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Transaction History</h3>
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                      {hbData.transactions.map(t => (
+                        <div key={t.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
+                          <div>
+                            <span className={`font-medium ${t.action === 'added' ? 'text-green-700' : 'text-red-700'}`}>
+                              {t.action === 'added' ? '+' : ''}{t.amount}h {t.type.replace('_', ' ')}
+                            </span>
+                            <span className="ml-2 text-gray-500 text-xs">
+                              by {t.input_by_name || 'system'} · {t.created_at ? new Date(t.created_at).toLocaleString() : ''}
+                            </span>
+                            {t.reason && <span className="ml-2 text-gray-400 text-xs">— {t.reason}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Hourly Rate Management (super admin only) */}
         {isSuperAdmin() && (

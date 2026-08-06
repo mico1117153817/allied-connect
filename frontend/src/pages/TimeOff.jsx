@@ -12,6 +12,8 @@ export default function TimeOff() {
     start_date: '',
     end_date: '',
     reason: '',
+    hour_type: null,
+    hours_requested: null,
   })
   const [error, setError] = useState('')
 
@@ -28,7 +30,7 @@ export default function TimeOff() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-time-off'] })
       setShowForm(false)
-      setFormData({ request_type: 'vacation', start_date: '', end_date: '', reason: '' })
+      setFormData({ request_type: 'vacation', start_date: '', end_date: '', reason: '', hour_type: null, hours_requested: null })
     },
     onError: (err) => setError(err.response?.data?.detail || 'Failed to submit request'),
   })
@@ -85,8 +87,39 @@ export default function TimeOff() {
                 <option value="sick">Sick</option>
                 <option value="personal">Personal</option>
                 <option value="unpaid">Unpaid</option>
+                <option value="back_hours">Back Hours</option>
               </select>
             </div>
+
+            {/* Hour usage selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Use Hours From (optional)</label>
+              <select
+                value={formData.hour_type || ''}
+                onChange={(e) => setFormData({ ...formData, hour_type: e.target.value || null, hours_requested: e.target.value ? formData.hours_requested : null })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">No — unpaid time off</option>
+                <option value="vacation_hours">Use Vacation Hours</option>
+                <option value="back_hours">Use Back Hours</option>
+                <option value="sick_hours">Use Sick Hours</option>
+              </select>
+            </div>
+
+            {formData.hour_type && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hours to Use</label>
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0.25"
+                  value={formData.hours_requested || ''}
+                  onChange={(e) => setFormData({ ...formData, hours_requested: parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="8"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
