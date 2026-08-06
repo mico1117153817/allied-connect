@@ -224,41 +224,31 @@ async def get_pay_period_data(
     calendar = build_calendar_data(shifts, scheduled_shifts, start_str, end_str,
                                    late_threshold_minutes=threshold, early_leave_threshold_minutes=early_threshold)
 
-    # Get hour transactions tied to this pay period (by pay_period_id) OR within date range
-    from datetime import datetime as _dt
+    # Get the employee's current running balances (not filtered by date)
+    current_balances = get_all_balances(db, user["timestation_id"])
+    back_hours = current_balances["back_hours"]
+    vacation_hours = current_balances["vacation_hours"]
+
+    # Get hour transactions tagged to this pay period (deductions from approved time-off)
     period_transactions = (
         db.query(HourTransaction)
         .filter(
             HourTransaction.employee_id == user["timestation_id"],
-            (HourTransaction.pay_period_id == period_id) |
-            (
-                HourTransaction.pay_period_id.is_(None) &
-                (HourTransaction.created_at >= _dt.combine(pp.start_date, _dt.min.time())) &
-                (HourTransaction.created_at <= _dt.combine(pp.end_date, _dt.max.time()))
-            ),
+            HourTransaction.pay_period_id == period_id,
         )
         .order_by(HourTransaction.created_at.desc())
         .all()
     )
     hours_used = []
-    back_hours = 0.0
-    vacation_hours = 0.0
     for t in period_transactions:
-        amt = float(t.amount)
         hours_used.append({
             "type": t.type,
-            "amount": amt,
+            "amount": float(t.amount),
             "action": t.action,
             "reason": t.reason,
             "input_by_name": t.input_by_name,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         })
-        # Only count positive (added) hours toward back/vacation totals
-        if t.action == "added":
-            if t.type == "back_hours":
-                back_hours += amt
-            elif t.type == "vacation_hours":
-                vacation_hours += amt
 
     # Get employee's private hourly rate for gross pay calculation
     emp = db.query(Employee).filter(Employee.timestation_id == user["timestation_id"]).first()

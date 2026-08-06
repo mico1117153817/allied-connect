@@ -31,7 +31,7 @@ export default function Settings() {
   const [rateMsg, setRateMsg] = useState('')
   const [hbEmpId, setHbEmpId] = useState('')
   const [hbData, setHbData] = useState(null)
-  const [hbForm, setHbForm] = useState({ type: 'back_hours', amount: '', reason: '', pay_period_id: null })
+  const [hbForm, setHbForm] = useState({ type: 'back_hours', amount: '', reason: '' })
   const [hbMsg, setHbMsg] = useState('')
 
   const { data, isLoading } = useQuery({
@@ -557,21 +557,6 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Pay Period (assign to)</label>
-                      <select
-                        value={hbForm.pay_period_id || ''}
-                        onChange={(e) => setHbForm({ ...hbForm, pay_period_id: e.target.value ? parseInt(e.target.value) : null })}
-                        className="px-3 py-2 border rounded text-sm"
-                      >
-                        <option value="">No specific period</option>
-                        {ppData?.pay_periods?.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.label} ({p.start_date} → {p.end_date})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex-1 min-w-48">
                       <label className="block text-xs text-gray-500 mb-1">Reason (optional)</label>
                       <input
                         type="text"
@@ -589,12 +574,11 @@ export default function Settings() {
                             type: hbForm.type,
                             amount: parseFloat(hbForm.amount),
                             reason: hbForm.reason || null,
-                            pay_period_id: hbForm.pay_period_id || null,
                           })
                           setHbMsg('Hours added!')
                           const resp = await api.get(`/api/manager/hour-balance/${hbEmpId}`)
                           setHbData(resp.data)
-                          setHbForm({ type: 'back_hours', amount: '', reason: '', pay_period_id: null })
+                          setHbForm({ type: 'back_hours', amount: '', reason: '' })
                         } catch (err) {
                           setHbMsg('Failed to add hours')
                         }
@@ -611,37 +595,17 @@ export default function Settings() {
                 {hbData.transactions?.length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold mb-2">Transaction History</h3>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
                       {hbData.transactions.map(t => (
-                        <div key={t.id} className="flex flex-col p-2 bg-gray-50 rounded text-sm">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <span className={`font-medium ${t.action === 'added' ? 'text-green-700' : 'text-red-700'}`}>
-                                {t.action === 'added' ? '+' : ''}{t.amount}h {t.type.replace('_', ' ')}
-                              </span>
-                              <span className="ml-2 text-gray-500 text-xs">
-                                by {t.input_by_name || 'system'} · {t.created_at ? new Date(t.created_at).toLocaleString() : ''}
-                              </span>
-                              {t.reason && <span className="ml-2 text-gray-400 text-xs">— {t.reason}</span>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <label className="text-xs text-gray-400">Pay Period:</label>
-                            <select
-                              value={t.pay_period_id || ''}
-                              onChange={async (e) => {
-                                const ppId = e.target.value ? parseInt(e.target.value) : null
-                                await api.put(`/api/manager/hour-balance/transaction/${t.id}/assign-period`, { pay_period_id: ppId })
-                                const resp = await api.get(`/api/manager/hour-balance/${hbEmpId}`)
-                                setHbData(resp.data)
-                              }}
-                              className="text-xs px-2 py-1 border rounded"
-                            >
-                              <option value="">Unassigned</option>
-                              {ppData?.pay_periods?.map(p => (
-                                <option key={p.id} value={p.id}>{p.label} ({p.start_date} → {p.end_date})</option>
-                              ))}
-                            </select>
+                        <div key={t.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
+                          <div>
+                            <span className={`font-medium ${t.action === 'added' ? 'text-green-700' : 'text-red-700'}`}>
+                              {t.action === 'added' ? '+' : ''}{t.amount}h {t.type.replace('_', ' ')}
+                            </span>
+                            <span className="ml-2 text-gray-500 text-xs">
+                              by {t.input_by_name || 'system'} · {t.created_at ? new Date(t.created_at).toLocaleString() : ''}
+                            </span>
+                            {t.reason && <span className="ml-2 text-gray-400 text-xs">— {t.reason}</span>}
                           </div>
                         </div>
                       ))}
