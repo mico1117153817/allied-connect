@@ -19,3 +19,4 @@ class TimeOffRequest(Base):
     # New: hours to use from balance
     hour_type = Column(String, nullable=True)  # back_hours, vacation_hours, sick_hours (which pool to deduct from)
     hours_requested = Column(Numeric(10, 2), nullable=True)  # how many hours to use
+    pay_period_id = Column(Integer, nullable=True)  # which pay period the hours apply to

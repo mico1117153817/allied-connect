@@ -14,6 +14,7 @@ export default function TimeOff() {
     reason: '',
     hour_type: null,
     hours_requested: null,
+    pay_period_id: null,
   })
   const [error, setError] = useState('')
 
@@ -25,12 +26,17 @@ export default function TimeOff() {
     }),
   })
 
+  const { data: ppList } = useQuery({
+    queryKey: ['pay-periods'],
+    queryFn: () => api.get('/api/me/pay-periods').then(r => r.data),
+  })
+
   const createMutation = useMutation({
     mutationFn: (data) => api.post('/api/time-off/', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-time-off'] })
       setShowForm(false)
-      setFormData({ request_type: 'vacation', start_date: '', end_date: '', reason: '', hour_type: null, hours_requested: null })
+      setFormData({ request_type: 'vacation', start_date: '', end_date: '', reason: '', hour_type: null, hours_requested: null, pay_period_id: null })
     },
     onError: (err) => setError(err.response?.data?.detail || 'Failed to submit request'),
   })
@@ -40,6 +46,10 @@ export default function TimeOff() {
     setError('')
     if (formData.end_date < formData.start_date) {
       setError('End date must be after start date')
+      return
+    }
+    if (formData.hour_type && !formData.pay_period_id) {
+      setError('Please select a pay period when using hours')
       return
     }
     createMutation.mutate(formData)
@@ -118,6 +128,24 @@ export default function TimeOff() {
                   className="w-full px-3 py-2 border rounded-lg"
                   placeholder="8"
                 />
+              </div>
+            )}
+
+            {formData.hour_type && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pay Period to Apply To *</label>
+                <select
+                  value={formData.pay_period_id || ''}
+                  onChange={(e) => setFormData({ ...formData, pay_period_id: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">Select a pay period...</option>
+                  {ppList?.pay_periods?.map(pp => (
+                    <option key={pp.id} value={pp.id}>
+                      {pp.label} — {pp.start_date} → {pp.end_date}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">

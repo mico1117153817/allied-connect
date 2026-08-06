@@ -33,6 +33,7 @@ class TimeOffCreate(BaseModel):
     reason: Optional[str] = None
     hour_type: Optional[str] = Field(None, description="back_hours | vacation_hours | sick_hours")
     hours_requested: Optional[float] = Field(None, description="Number of hours to use from balance")
+    pay_period_id: Optional[int] = Field(None, description="Which pay period the hours apply to")
 
 
 class TimeOffReview(BaseModel):
@@ -77,6 +78,7 @@ def _serialize(req: TimeOffRequest, employee_name: Optional[str] = None) -> dict
         "created_at": req.created_at,
         "hour_type": req.hour_type,
         "hours_requested": float(req.hours_requested) if req.hours_requested else None,
+        "pay_period_id": req.pay_period_id,
     }
 
 
@@ -115,6 +117,7 @@ def create_request(
         status="pending",
         hour_type=payload.hour_type,
         hours_requested=payload.hours_requested,
+        pay_period_id=payload.pay_period_id,
     )
     db.add(req)
     db.commit()
@@ -196,6 +199,7 @@ def review_request(
                 input_by_name=user["name"],
                 reason=f"Time-off request #{req.id} approved ({req.start_date} to {req.end_date})",
                 time_off_request_id=req.id,
+                pay_period_id=req.pay_period_id,
             )
         except ValueError as e:
             # If balance is insufficient, note it but don't block the approval

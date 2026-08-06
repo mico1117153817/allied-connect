@@ -80,6 +80,7 @@ def deduct_hours(
     input_by_name: str,
     reason: str | None = None,
     time_off_request_id: int | None = None,
+    pay_period_id: int | None = None,
 ) -> dict:
     """Deduct hours from an employee's balance (e.g., when time-off is approved)."""
     if type not in ("back_hours", "vacation_hours", "sick_hours"):
@@ -110,6 +111,7 @@ def deduct_hours(
         input_by=input_by,
         input_by_name=input_by_name,
         time_off_request_id=time_off_request_id,
+        pay_period_id=pay_period_id,
     )
     db.add(txn)
     db.commit()
