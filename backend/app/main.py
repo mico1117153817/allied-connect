@@ -2,9 +2,10 @@ import os
 import asyncio
 import hashlib
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.models.database import Base, engine, SessionLocal
@@ -165,4 +166,21 @@ async def health():
 # Serve React build (production)
 static_dir = os.environ.get("STATIC_DIR", "../frontend/dist")
 if os.path.isdir(static_dir):
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="frontend")
+    # Serve static assets (JS, CSS, images)
+    app.mount("/assets", StaticFiles(directory=os.path.join(static_dir, "assets")), name="assets")
+
+    # Catch-all: serve index.html for any non-API route (SPA routing)
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str, request: Request):
+        # Don't intercept API routes
+        if full_path.startswith("api/") or full_path.startswith("auth/"):
+            raise HTTPException(404, "Not found")
+
+        # Try to serve a real static file (e.g. allied-logo.jpg, favicon)
+        file_path = os.path.join(static_dir, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+
+        # Otherwise return index.html for client-side routing
+        index_path = os.path.join(static_dir, "index.html")
+        return FileResponse(index_path)
