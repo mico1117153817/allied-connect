@@ -223,7 +223,18 @@ export default function Dashboard() {
             <div className="flex flex-wrap gap-4 items-center">
               <select
                 value={selectedPpId}
-                onChange={(e) => setSelectedPpId(e.target.value)}
+                onChange={(e) => {
+                  const ppId = e.target.value
+                  setSelectedPpId(ppId)
+                  if (ppId) {
+                    const selectedPp = ppList.pay_periods.find(p => p.id == ppId)
+                    if (selectedPp) {
+                      const ppStart = new Date(selectedPp.start_date)
+                      const monthDiff = (ppStart.getFullYear() - now.getFullYear()) * 12 + (ppStart.getMonth() - now.getMonth())
+                      setMonthOffset(monthDiff)
+                    }
+                  }
+                }}
                 className="px-4 py-2 border rounded-lg min-w-48"
               >
                 <option value="">Select a pay period...</option>
