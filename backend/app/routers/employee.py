@@ -224,10 +224,8 @@ async def get_pay_period_data(
     calendar = build_calendar_data(shifts, scheduled_shifts, start_str, end_str,
                                    late_threshold_minutes=threshold, early_leave_threshold_minutes=early_threshold)
 
-    # Get the employee's current running balances (not filtered by date)
+    # Get the employee's current running balances (for display)
     current_balances = get_all_balances(db, user["timestation_id"])
-    back_hours = current_balances["back_hours"]
-    vacation_hours = current_balances["vacation_hours"]
 
     # Get hour transactions tagged to this pay period (deductions from approved time-off)
     period_transactions = (
@@ -240,15 +238,27 @@ async def get_pay_period_data(
         .all()
     )
     hours_used = []
+    back_hours_used = 0.0
+    vacation_hours_used = 0.0
+    sick_hours_used = 0.0
     for t in period_transactions:
+        amt = float(t.amount)
         hours_used.append({
             "type": t.type,
-            "amount": float(t.amount),
+            "amount": amt,
             "action": t.action,
             "reason": t.reason,
             "input_by_name": t.input_by_name,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         })
+        # Only count deductions (negative amounts) as hours used
+        if t.action == "deducted":
+            if t.type == "back_hours":
+                back_hours_used += abs(amt)
+            elif t.type == "vacation_hours":
+                vacation_hours_used += abs(amt)
+            elif t.type == "sick_hours":
+                sick_hours_used += abs(amt)
 
     # Get employee's private hourly rate for gross pay calculation
     emp = db.query(Employee).filter(Employee.timestation_id == user["timestation_id"]).first()
@@ -256,7 +266,8 @@ async def get_pay_period_data(
     worked_hours = round(total_minutes / 60.0, 2)
     gross_pay = None
     if hourly_rate:
-        gross_pay = round((worked_hours + back_hours + vacation_hours) * hourly_rate, 2)
+        # Gross pay = worked hours + hours used from balance in this period
+        gross_pay = round((worked_hours + back_hours_used + vacation_hours_used + sick_hours_used) * hourly_rate, 2)
 
     # Stats
     worked_days = [d for d in calendar if d["worked"]]
@@ -275,8 +286,12 @@ async def get_pay_period_data(
         "days_worked": len(worked_days),
         "late_arrivals": len(late_days),
         "left_early": len(early_days),
-        "back_hours": round(back_hours, 2),
-        "vacation_hours": round(vacation_hours, 2),
+        "back_hours": current_balances["back_hours"],
+        "vacation_hours": current_balances["vacation_hours"],
+        "sick_hours": current_balances["sick_hours"],
+        "back_hours_used": round(back_hours_used, 2),
+        "vacation_hours_used": round(vacation_hours_used, 2),
+        "sick_hours_used": round(sick_hours_used, 2),
         "hourly_rate": hourly_rate,
         "gross_pay": gross_pay,
         "hours_used": hours_used,

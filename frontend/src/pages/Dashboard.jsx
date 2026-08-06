@@ -263,20 +263,32 @@ export default function Dashboard() {
                     <p className="text-xl font-bold text-yellow-600">{ppData.left_early}</p>
                   </div>
                   <div className="bg-purple-50 p-3 rounded-lg">
-                    <p className="text-xs text-gray-500">Back Hours</p>
-                    <p className="text-xl font-bold text-purple-600">{ppData.back_hours}</p>
+                    <p className="text-xs text-gray-500">Back Hours (balance)</p>
+                    <p className="text-xl font-bold text-purple-600">{ppData.back_hours || 0}h</p>
                   </div>
                   <div className="bg-indigo-50 p-3 rounded-lg">
-                    <p className="text-xs text-gray-500">Vac Hours</p>
-                    <p className="text-xl font-bold text-indigo-600">{ppData.vacation_hours}</p>
+                    <p className="text-xs text-gray-500">Vac Hours (balance)</p>
+                    <p className="text-xl font-bold text-indigo-600">{ppData.vacation_hours || 0}h</p>
                   </div>
+                  {ppData.sick_hours !== undefined && (
+                    <div className="bg-teal-50 p-3 rounded-lg">
+                      <p className="text-xs text-gray-500">Sick Hours (balance)</p>
+                      <p className="text-xl font-bold text-teal-600">{ppData.sick_hours || 0}h</p>
+                    </div>
+                  )}
                   {ppData.gross_pay !== null && ppData.gross_pay !== undefined && (
                     <div className="col-span-2 md:col-span-6 bg-emerald-50 p-3 rounded-lg flex justify-between items-center">
                       <div>
                         <p className="text-xs text-gray-500">
-                          Gross Pay — ${ppData.hourly_rate}/hr × {(ppData.total_hours + ppData.back_hours + ppData.vacation_hours).toFixed(2)}h
+                          Gross Pay — ${ppData.hourly_rate}/hr × {(ppData.total_hours + (ppData.back_hours_used || 0) + (ppData.vacation_hours_used || 0) + (ppData.sick_hours_used || 0)).toFixed(2)}h
                         </p>
-                        <p className="text-sm text-gray-600">Worked: {ppData.total_hours}h + Back: {ppData.back_hours}h + Vac: {ppData.vacation_hours}h</p>
+                        <p className="text-sm text-gray-600">
+                          Worked: {ppData.total_hours}h
+                          {(ppData.back_hours_used || 0) > 0 && ` + Back used: ${ppData.back_hours_used}h`}
+                          {(ppData.vacation_hours_used || 0) > 0 && ` + Vac used: ${ppData.vacation_hours_used}h`}
+                          {(ppData.sick_hours_used || 0) > 0 && ` + Sick used: ${ppData.sick_hours_used}h`}
+                          {(ppData.back_hours_used || 0) === 0 && (ppData.vacation_hours_used || 0) === 0 && (ppData.sick_hours_used || 0) === 0 && ' (no hours used this period)'}
+                        </p>
                       </div>
                       <p className="text-2xl font-bold text-emerald-700">
                         ${ppData.gross_pay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
