@@ -357,9 +357,10 @@ export default function Manager() {
                             <div key={i} className={[
                               'min-h-20 p-1 rounded border text-xs',
                               !cell && 'bg-gray-50 border-gray-100',
-                              cell && !cell.worked && 'bg-white border-gray-200',
+                              cell && !cell.worked && !cell.is_missed && 'bg-white border-gray-200',
                               cell?.worked && !cell.is_late && 'bg-green-50 border-green-200',
                               cell?.is_late && 'bg-red-50 border-red-200',
+                              cell?.is_missed && 'bg-orange-50 border-orange-300',
                             ].filter(Boolean).join(' ')}>
                               {cell && (
                                 <>
@@ -370,6 +371,9 @@ export default function Manager() {
                                       {cell.is_late && <div className="text-red-600">Late {cell.late_minutes}m</div>}
                                     </div>
                                   )}
+                                  {cell.is_missed && !cell.worked && (
+                                    <div className="mt-1 text-orange-600 font-medium">Missed</div>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -378,6 +382,7 @@ export default function Manager() {
                         <div className="flex gap-4 mt-3 text-xs text-gray-600">
                           <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-100 border border-green-300 rounded"></span> Worked</span>
                           <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-100 border border-red-300 rounded"></span> Late</span>
+                          <span className="flex items-center gap-1"><span className="w-3 h-3 bg-orange-100 border border-orange-300 rounded"></span> Missed</span>
                           <span className="flex items-center gap-1"><span className="w-3 h-3 bg-white border border-gray-300 rounded"></span> Not worked</span>
                         </div>
                       </>

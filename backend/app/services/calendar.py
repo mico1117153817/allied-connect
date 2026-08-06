@@ -16,36 +16,41 @@ def build_calendar_data(
         shifts: list of shift dicts from TimeStation, each with:
             - shift_id, total_minutes, in.time (ISO-8601), out.time
         scheduled_shifts: list of ScheduledShift ORM objects, each with:
-            - day_of_week (int 0=Mon..6=Sun), start_time (datetime.time)
+            - day_of_week (int 0=Mon..6=Sun), start_time (datetime.time), end_time
         start_date: ISO date string 'YYYY-MM-DD'
         end_date: ISO date string 'YYYY-MM-DD'
 
     Returns:
         list of dicts, one per date in [start_date, end_date], each containing:
             - date (str ISO), worked (bool), total_hours (float),
-            - shifts (list of {in, out, minutes}), is_late (bool), late_minutes (int)
+            - shifts (list of {in, out, minutes}), is_late (bool), late_minutes (int),
+            - is_scheduled (bool), is_missed (bool)
     """
     start = date.fromisoformat(start_date)
     end = date.fromisoformat(end_date)
 
-    # Build schedule lookup: day_of_week -> list of start_times
+    # Build schedule lookup: day_of_week -> list of scheduled shifts
     schedule_lookup: dict[int, list] = {}
     for sch in scheduled_shifts:
-        schedule_lookup.setdefault(sch.day_of_week, []).append(sch.start_time)
+        schedule_lookup.setdefault(sch.day_of_week, []).append(sch)
 
     # Group shifts by date string
     shifts_by_date: dict[str, list[dict]] = {}
     for shift in shifts:
         in_time_raw = shift.get("in", {}).get("time", "") or ""
-        # Shift dates can be 'YYYY-MM-DDTHH:MM:SS' or with timezone suffix
         shift_date_str = in_time_raw[:10]  # 'YYYY-MM-DD'
         shifts_by_date.setdefault(shift_date_str, []).append(shift)
+
+    today = date.today()
+    threshold = late_threshold_minutes if late_threshold_minutes is not None else settings.LATE_THRESHOLD_MINUTES
 
     result: list[dict] = []
     current = start
     while current <= end:
         date_str = current.isoformat()
         day_shifts = shifts_by_date.get(date_str, [])
+        dow = current.weekday()  # 0=Mon..6=Sun
+        scheduled_for_day = schedule_lookup.get(dow, [])
 
         if day_shifts:
             # Sort by clock-in time
@@ -68,11 +73,9 @@ def build_calendar_data(
             # Late detection: compare first shift's in.time to scheduled start
             is_late = False
             late_minutes = 0
-            scheduled_starts = schedule_lookup.get(current.weekday(), [])
-            if scheduled_starts:
+            if scheduled_for_day:
                 first_in_raw = (day_shifts_sorted[0].get("in", {}) or {}).get("time", "")
                 if first_in_raw:
-                    # Parse the ISO-8601 timestamp (strip any timezone offset)
                     try:
                         first_in_dt = datetime.fromisoformat(
                             first_in_raw.replace("Z", "+00:00")
@@ -80,17 +83,11 @@ def build_calendar_data(
                     except ValueError:
                         first_in_dt = None
                     if first_in_dt is not None:
-                        first_in_time = first_in_dt.time()
-                        # Find the closest scheduled start that is <= first_in_time
-                        # (employee should have started by the scheduled time).
-                        # We compare against the earliest scheduled start of the day.
-                        scheduled_start = min(scheduled_starts)
+                        scheduled_start = min(s.start_time for s in scheduled_for_day)
                         from datetime import datetime as _dt
                         sched_dt = _dt.combine(current, scheduled_start)
-                        # Compare in local naive terms; if first_in has tz, strip it
                         first_in_naive = first_in_dt.replace(tzinfo=None) if first_in_dt.tzinfo else first_in_dt
                         delta = (first_in_naive - sched_dt).total_seconds() / 60.0
-                        threshold = late_threshold_minutes if late_threshold_minutes is not None else settings.LATE_THRESHOLD_MINUTES
                         if delta > threshold:
                             is_late = True
                             late_minutes = int(round(delta))
@@ -102,8 +99,15 @@ def build_calendar_data(
                 "shifts": shift_entries,
                 "is_late": is_late,
                 "late_minutes": late_minutes,
+                "is_scheduled": bool(scheduled_for_day),
+                "is_missed": False,
             })
         else:
+            # No shifts worked — check if this was a scheduled day
+            is_scheduled = bool(scheduled_for_day)
+            # Only flag as missed if the day is in the past (or today) and was scheduled
+            is_missed = is_scheduled and current <= today
+
             result.append({
                 "date": date_str,
                 "worked": False,
@@ -111,6 +115,8 @@ def build_calendar_data(
                 "shifts": [],
                 "is_late": False,
                 "late_minutes": 0,
+                "is_scheduled": is_scheduled,
+                "is_missed": is_missed,
             })
 
         current += timedelta(days=1)

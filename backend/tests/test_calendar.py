@@ -71,6 +71,35 @@ def test_no_shifts_day_not_worked():
     assert day["shifts"] == []
     assert day["is_late"] is False
     assert day["late_minutes"] == 0
+    assert day["is_scheduled"] is True
+    # 2026-08-03 is in the past, so it should be flagged as missed
+    assert day["is_missed"] is True
+
+
+def test_missed_day_future_not_flagged():
+    """A scheduled day in the future that wasn't worked should NOT be flagged as missed."""
+    from datetime import date as _date, timedelta
+    # Find a future Monday (weekday 0)
+    future_date = _date.today() + timedelta(days=30)
+    while future_date.weekday() != 0:
+        future_date += timedelta(days=1)
+    future = future_date.isoformat()
+    shifts = []
+    scheduled = [MockScheduledShift(0, time(9, 0))]  # Monday
+    result = build_calendar_data(shifts, scheduled, future, future)
+
+    assert result[0]["is_scheduled"] is True
+    assert result[0]["is_missed"] is False
+
+
+def test_unscheduled_day_not_missed():
+    """A day with no schedule and no shift should not be flagged as missed."""
+    shifts = []
+    scheduled = []
+    result = build_calendar_data(shifts, scheduled, "2026-08-03", "2026-08-03")
+
+    assert result[0]["is_scheduled"] is False
+    assert result[0]["is_missed"] is False
 
 
 def test_multi_day_range():
