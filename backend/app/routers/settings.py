@@ -14,7 +14,7 @@ class SettingUpdate(BaseModel):
 
 
 # Keys that managers are allowed to change
-EDITABLE_KEYS = {"late_threshold_minutes", "portal_name"}
+EDITABLE_KEYS = {"late_threshold_minutes", "early_leave_threshold_minutes", "portal_name"}
 
 
 @router.get("")
@@ -43,14 +43,14 @@ async def update_setting(
     if req.key not in EDITABLE_KEYS:
         raise HTTPException(403, f"Setting '{req.key}' is not editable")
 
-    # Validate late_threshold_minutes is a positive integer
-    if req.key == "late_threshold_minutes":
+    # Validate thresholds are non-negative integers
+    if req.key in ("late_threshold_minutes", "early_leave_threshold_minutes"):
         try:
             val = int(req.value)
             if val < 0:
                 raise ValueError
         except ValueError:
-            raise HTTPException(400, "late_threshold_minutes must be a non-negative integer")
+            raise HTTPException(400, f"{req.key} must be a non-negative integer")
 
     row = set_setting(db, req.key, req.value)
     return {"key": row.key, "value": row.value, "updated": True}

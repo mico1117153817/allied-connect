@@ -6,6 +6,10 @@ DEFAULTS = {
         "value": "1",
         "description": "Minutes after scheduled start time before an employee is flagged as late",
     },
+    "early_leave_threshold_minutes": {
+        "value": "1",
+        "description": "Minutes before scheduled end time before an employee is flagged as leaving early",
+    },
     "portal_name": {
         "value": "Allied Connect",
         "description": "Portal display name shown in the header and login page",

@@ -142,8 +142,10 @@ export default function Settings() {
           {isLoading ? (
             <p className="text-gray-500">Loading...</p>
           ) : (
-            <div className="space-y-4">
-              {data?.settings?.map(s => (
+          <div className="space-y-4">
+              {data?.settings?.map(s => {
+                const isThreshold = s.key.includes('minutes')
+                return (
                 <div key={s.key} className="border rounded-lg p-4">
                   <div className="flex justify-between items-center">
                     <div>
@@ -174,7 +176,7 @@ export default function Settings() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-blue-700 text-lg">{s.value}{s.key.includes('minutes') ? ' min' : ''}</span>
+                        <span className="font-bold text-blue-700 text-lg">{s.value}{isThreshold ? ' min' : ''}</span>
                         <button
                           onClick={() => { setEditKey(s.key); setEditValue(s.value) }}
                           className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
@@ -185,7 +187,8 @@ export default function Settings() {
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

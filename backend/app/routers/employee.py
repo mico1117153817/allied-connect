@@ -77,14 +77,17 @@ async def get_calendar(
         .filter(ScheduledShift.employee_id == user["timestation_id"])
         .all()
     )
-    # Get late threshold from settings (DB) or config default
+    # Get thresholds from settings (DB) or config default
     threshold_str = get_setting(db, "late_threshold_minutes")
     threshold = int(threshold_str) if threshold_str else settings.LATE_THRESHOLD_MINUTES
-    calendar = build_calendar_data(shifts, scheduled_shifts, start, end, late_threshold_minutes=threshold)
+    early_str = get_setting(db, "early_leave_threshold_minutes")
+    early_threshold = int(early_str) if early_str else threshold
+    calendar = build_calendar_data(shifts, scheduled_shifts, start, end, late_threshold_minutes=threshold, early_leave_threshold_minutes=early_threshold)
     return {
         "start": start,
         "end": end,
         "late_threshold_minutes": threshold,
+        "early_leave_threshold_minutes": early_threshold,
         "days": calendar,
     }
 

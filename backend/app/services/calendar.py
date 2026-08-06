@@ -9,6 +9,7 @@ def build_calendar_data(
     start_date: str,
     end_date: str,
     late_threshold_minutes: int | None = None,
+    early_leave_threshold_minutes: int | None = None,
 ) -> list[dict]:
     """Build calendar data for a date range.
 
@@ -34,7 +35,8 @@ def build_calendar_data(
         shifts_by_date.setdefault(shift_date_str, []).append(shift)
 
     today = date.today()
-    threshold = late_threshold_minutes if late_threshold_minutes is not None else settings.LATE_THRESHOLD_MINUTES
+    late_threshold = late_threshold_minutes if late_threshold_minutes is not None else settings.LATE_THRESHOLD_MINUTES
+    early_threshold = early_leave_threshold_minutes if early_leave_threshold_minutes is not None else late_threshold
 
     result: list[dict] = []
     current = start
@@ -79,7 +81,7 @@ def build_calendar_data(
                         sched_dt = _dt.combine(current, scheduled_start)
                         first_in_naive = first_in_dt.replace(tzinfo=None) if first_in_dt.tzinfo else first_in_dt
                         delta = (first_in_naive - sched_dt).total_seconds() / 60.0
-                        if delta > threshold:
+                        if delta > late_threshold:
                             is_late = True
                             late_minutes = int(round(delta))
 
@@ -101,7 +103,7 @@ def build_calendar_data(
                         sched_end_dt = _dt.combine(current, scheduled_end)
                         last_out_naive = last_out_dt.replace(tzinfo=None) if last_out_dt.tzinfo else last_out_dt
                         end_delta = (sched_end_dt - last_out_naive).total_seconds() / 60.0
-                        if end_delta > threshold:
+                        if end_delta > early_threshold:
                             is_early_leave = True
                             early_leave_minutes = int(round(end_delta))
 

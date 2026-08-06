@@ -310,11 +310,12 @@ export default function Manager() {
               ) : (
                 <>
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-4 gap-4 mb-6">
                     {(() => {
                       const days = empCalData?.days || []
                       const workedDays = days.filter(d => d.worked)
                       const lateDays = days.filter(d => d.is_late)
+                      const earlyDays = days.filter(d => d.is_early_leave)
                       const totalHours = workedDays.reduce((sum, d) => sum + d.total_hours, 0)
                       return (
                         <>
@@ -329,6 +330,10 @@ export default function Manager() {
                           <div className="bg-red-50 p-4 rounded-lg">
                             <p className="text-sm text-gray-500">Late Arrivals</p>
                             <p className="text-2xl font-bold text-red-600">{lateDays.length}</p>
+                          </div>
+                          <div className="bg-yellow-50 p-4 rounded-lg">
+                            <p className="text-sm text-gray-500">Left Early</p>
+                            <p className="text-2xl font-bold text-yellow-600">{earlyDays.length}</p>
                           </div>
                         </>
                       )
