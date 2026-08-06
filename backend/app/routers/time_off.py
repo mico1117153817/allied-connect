@@ -247,7 +247,8 @@ def void_request(
     user: dict = Depends(require_manager),
 ):
     """Manager: void an approved time-off request and reverse the hour deduction.
-    Adds the hours back to the employee's balance with an audit trail entry."""
+    Adds the hours back to the employee's balance with an audit trail entry.
+    Clears the pay_period_id from the original deduction so it no longer shows in that period."""
     req = db.get(TimeOffRequest, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Time-off request not found")
@@ -256,6 +257,17 @@ def void_request(
 
     # Reverse the hour deduction if hours were used
     if req.hour_type and req.hours_requested:
+        # Clear the pay_period_id from the original deduction transaction
+        # so it no longer shows up in the pay period's hours_used
+        from app.models.hour_balance import HourTransaction
+        original_txn = db.query(HourTransaction).filter(
+            HourTransaction.time_off_request_id == req.id,
+            HourTransaction.action == "deducted",
+        ).first()
+        if original_txn:
+            original_txn.pay_period_id = None
+
+        # Add hours back (no pay_period_id — this is a reversal, not usage)
         try:
             add_hours(
                 db,
@@ -265,7 +277,6 @@ def void_request(
                 input_by=user["timestation_id"],
                 input_by_name=user["name"],
                 reason=f"Voided time-off request #{req.id} ({req.start_date} to {req.end_date}) — hours returned",
-                pay_period_id=req.pay_period_id,
             )
         except ValueError as e:
             print(f"[time-off] WARNING: Could not reverse hours: {e}")
