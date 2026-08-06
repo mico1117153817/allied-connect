@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Email (Postmark)
     POSTMARK_API_KEY: str = ""
-    EMAIL_FROM: str = "Allied Connect <noreply@alliedalliancegroupinc.com>"
+    EMAIL_FROM: str = "Allied Connect <support@alliedalliancegroupinc.com>"
 
     # Frontend URL (for CORS)
     FRONTEND_URL: str = "http://localhost:5173"

@@ -27,7 +27,7 @@ TIMESTATION_MANAGERS = [
 # Local-only accounts (not in TimeStation)
 # PINs chosen to avoid collision with existing TimeStation PINs
 LOCAL_ACCOUNTS = [
-    {"name": "Marc Mancuso", "pin": "1001", "email": "marc@alliedalliancegroupinc.com", "title": "President", "role": "manager"},
+    {"name": "Marc Mancuso", "pin": "1001", "email": "marcmancuso@alliedalliancegroupinc.com", "title": "President", "role": "manager"},
     {"name": "Nicole Mancuso", "pin": "1002", "email": "nicole@alliedalliancegroupinc.com", "title": "Vice President", "role": "manager"},
 ]
 
