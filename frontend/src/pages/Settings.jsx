@@ -14,6 +14,18 @@ export default function Settings() {
   const [scheduleEmpId, setScheduleEmpId] = useState('')
   const [scheduleForm, setScheduleForm] = useState({})
 
+  // Bulk schedule state
+  const [bulkForm, setBulkForm] = useState({
+    0: { start: '09:00', end: '17:00' },
+    1: { start: '09:00', end: '17:00' },
+    2: { start: '09:00', end: '17:00' },
+    3: { start: '09:00', end: '17:00' },
+    4: { start: '09:00', end: '17:00' },
+    5: { start: '', end: '' },
+    6: { start: '', end: '' },
+  })
+  const [bulkSaving, setBulkSaving] = useState(false)
+
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get('/api/settings').then(r => r.data),
@@ -72,6 +84,34 @@ export default function Settings() {
       end_time: entry.end || '17:00',
       department_id: null,
     })
+  }
+
+  const handleBulkSave = async () => {
+    setBulkSaving(true)
+    setMsg('')
+    try {
+      const schedules = DOW_NUM
+        .filter(dow => bulkForm[dow]?.start)
+        .map(dow => ({
+          day_of_week: dow,
+          start_time: bulkForm[dow].start,
+          end_time: bulkForm[dow].end || '17:00',
+        }))
+
+      if (schedules.length === 0) {
+        setMsg('Please check at least one day.')
+        setBulkSaving(false)
+        return
+      }
+
+      const resp = await api.post('/api/manager/bulk-schedule', { schedules })
+      setMsg(`Schedule applied to ${resp.data.employees_updated} employees (${resp.data.total_shifts} shifts)`)
+      qc.invalidateQueries({ queryKey: ['schedule', scheduleEmpId] })
+    } catch (err) {
+      setMsg('Failed to apply schedule.')
+    } finally {
+      setBulkSaving(false)
+    }
   }
 
   return (
@@ -150,11 +190,81 @@ export default function Settings() {
           )}
         </div>
 
-        {/* Schedule Management */}
+        {/* Bulk Schedule — Set for All Employees */}
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-2">Employee Schedule</h2>
+          <h2 className="text-lg font-semibold mb-2">Set Default Schedule for All Employees</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Set expected work days and start times for each employee. This enables late arrival and missed day detection on the calendar.
+            Set a schedule template that applies to everyone at once. You can then customize individual employees below.
+          </p>
+          <div className="space-y-2 mb-4">
+            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 pb-1 border-b">
+              <div className="col-span-3">Day</div>
+              <div className="col-span-3">Work Day?</div>
+              <div className="col-span-3">Start Time</div>
+              <div className="col-span-3">End Time</div>
+            </div>
+            {DOW_NUM.map(dow => (
+              <div key={dow} className="grid grid-cols-12 gap-2 items-center py-1">
+                <div className="col-span-3 font-medium text-sm">{DAYS[dow]}</div>
+                <div className="col-span-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!bulkForm[dow].start}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setBulkForm({
+                          ...bulkForm,
+                          [dow]: checked
+                            ? { start: '09:00', end: '17:00' }
+                            : { start: '', end: '' }
+                        })
+                      }}
+                    />
+                    {bulkForm[dow].start ? 'Yes' : 'No'}
+                  </label>
+                </div>
+                <div className="col-span-3">
+                  <input
+                    type="time"
+                    value={bulkForm[dow].start}
+                    onChange={(e) => setBulkForm({
+                      ...bulkForm,
+                      [dow]: { ...bulkForm[dow], start: e.target.value }
+                    })}
+                    disabled={!bulkForm[dow].start}
+                    className="w-full px-2 py-1 border rounded text-sm disabled:bg-gray-100"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <input
+                    type="time"
+                    value={bulkForm[dow].end}
+                    onChange={(e) => setBulkForm({
+                      ...bulkForm,
+                      [dow]: { ...bulkForm[dow], end: e.target.value }
+                    })}
+                    disabled={!bulkForm[dow].start}
+                    className="w-full px-2 py-1 border rounded text-sm disabled:bg-gray-100"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={handleBulkSave}
+            disabled={bulkSaving}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm"
+          >
+            {bulkSaving ? 'Applying...' : 'Apply to All Employees'}
+          </button>
+        </div>
+
+        {/* Individual Schedule Management */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold mb-2">Individual Employee Schedule</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Customize a specific employee's schedule. This overrides the default schedule set above.
           </p>
 
           <div className="mb-6">

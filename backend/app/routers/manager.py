@@ -254,6 +254,65 @@ async def get_scheduled_shifts(
     }
 
 
+# ── Bulk schedule: apply to all employees at once ─────────────
+
+class BulkScheduleInput(BaseModel):
+    schedules: list[dict]  # [{"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"}, ...]
+    employee_ids: list[str] | None = None  # if None, apply to all
+
+
+@router.post("/bulk-schedule")
+async def set_bulk_schedule(
+    req: BulkScheduleInput,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Apply a schedule template to all (or selected) employees at once.
+    Overwrites any existing scheduled shifts for the given days."""
+    # Determine target employees
+    if req.employee_ids:
+        target_ids = req.employee_ids
+    else:
+        # All employees in the DB
+        all_emps = db.query(Employee).filter(Employee.is_active == True).all()
+        target_ids = [e.timestation_id for e in all_emps]
+
+    count = 0
+    for emp_id in target_ids:
+        for sched in req.schedules:
+            dow = sched["day_of_week"]
+            start = sched["start_time"]
+            end = sched.get("end_time", "17:00")
+
+            # Remove existing shift for this employee + day
+            existing = (
+                db.query(ScheduledShift)
+                .filter(
+                    ScheduledShift.employee_id == emp_id,
+                    ScheduledShift.day_of_week == dow,
+                )
+                .first()
+            )
+            if existing:
+                db.delete(existing)
+
+            ss = ScheduledShift(
+                employee_id=emp_id,
+                day_of_week=dow,
+                start_time=time.fromisoformat(start),
+                end_time=time.fromisoformat(end),
+            )
+            db.add(ss)
+            count += 1
+
+    db.commit()
+    return {
+        "status": "created",
+        "employees_updated": len(target_ids),
+        "total_shifts": count,
+    }
+
+
 # ── Set manager role ───────────────────────────────────────────
 
 class SetRoleInput(BaseModel):
