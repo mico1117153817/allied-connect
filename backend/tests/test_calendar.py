@@ -38,6 +38,8 @@ def test_on_time_shift_not_late():
     assert day["total_hours"] == round(483 / 60.0, 2)
     assert day["is_late"] is False
     assert day["late_minutes"] == 0
+    assert day["is_early_leave"] is False
+    assert day["early_leave_minutes"] == 0
     assert len(day["shifts"]) == 1
     assert day["shifts"][0]["minutes"] == 483
 
@@ -55,6 +57,30 @@ def test_late_shift_flagged():
     assert day["is_late"] is True
     assert day["late_minutes"] == 12
     assert day["total_hours"] == round(468 / 60.0, 2)
+
+
+def test_early_leave_flagged():
+    """A shift that leaves before the scheduled end time is flagged as early leave."""
+    # Scheduled 09:00-17:00, but leaves at 15:00 (2 hours early)
+    shifts = [_shift("2026-08-03T09:00:00", "2026-08-03T15:00:00", 360)]
+    scheduled = [MockScheduledShift(0, time(9, 0), time(17, 0))]
+    result = build_calendar_data(shifts, scheduled, "2026-08-03", "2026-08-03", late_threshold_minutes=1)
+
+    day = result[0]
+    assert day["worked"] is True
+    assert day["is_late"] is False
+    assert day["is_early_leave"] is True
+    assert day["early_leave_minutes"] == 120  # 2 hours = 120 minutes
+
+
+def test_no_early_leave_if_works_full_shift():
+    """Leaving a few minutes before end (within threshold) is not flagged."""
+    shifts = [_shift("2026-08-03T09:00:00", "2026-08-03T16:59:00", 479)]
+    scheduled = [MockScheduledShift(0, time(9, 0), time(17, 0))]
+    result = build_calendar_data(shifts, scheduled, "2026-08-03", "2026-08-03", late_threshold_minutes=1)
+
+    day = result[0]
+    assert day["is_early_leave"] is False
 
 
 def test_no_shifts_day_not_worked():

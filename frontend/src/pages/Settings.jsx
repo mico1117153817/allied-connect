@@ -367,6 +367,7 @@ export default function Settings() {
             <p><span className="inline-block w-4 h-4 bg-green-100 border border-green-300 rounded mr-2 align-middle"></span> Worked (on time)</p>
             <p><span className="inline-block w-4 h-4 bg-red-100 border border-red-300 rounded mr-2 align-middle"></span> Late arrival (after threshold)</p>
             <p><span className="inline-block w-4 h-4 bg-orange-100 border border-orange-300 rounded mr-2 align-middle"></span> Missed day (scheduled but didn't work)</p>
+            <p><span className="inline-block w-4 h-4 bg-yellow-100 border border-yellow-400 rounded mr-2 align-middle"></span> Left early (before scheduled end time)</p>
             <p><span className="inline-block w-4 h-4 bg-white border border-gray-300 rounded mr-2 align-middle"></span> Not scheduled / not worked</p>
           </div>
         </div>

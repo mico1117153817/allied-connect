@@ -169,6 +169,7 @@ export default function Dashboard() {
                           <div className="mt-1">
                             <div className="text-green-700 font-medium">{cell.total_hours}h</div>
                             {cell.is_late && <div className="text-red-600">Late {cell.late_minutes}m</div>}
+                            {cell.is_early_leave && <div className="text-yellow-600">Left early {cell.early_leave_minutes}m</div>}
                           </div>
                         )}
                         {cell.is_missed && !cell.worked && (
@@ -179,10 +180,11 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-              <div className="flex gap-4 mt-3 text-xs text-gray-600">
+              <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-600">
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-100 border border-green-300 rounded"></span> Worked</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-100 border border-red-300 rounded"></span> Late</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-orange-100 border border-orange-300 rounded"></span> Missed</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-100 border border-yellow-400 rounded"></span> Left early</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-white border border-gray-300 rounded"></span> Not worked</span>
               </div>
             </>

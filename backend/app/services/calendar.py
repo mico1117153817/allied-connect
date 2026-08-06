@@ -12,19 +12,11 @@ def build_calendar_data(
 ) -> list[dict]:
     """Build calendar data for a date range.
 
-    Args:
-        shifts: list of shift dicts from TimeStation, each with:
-            - shift_id, total_minutes, in.time (ISO-8601), out.time
-        scheduled_shifts: list of ScheduledShift ORM objects, each with:
-            - day_of_week (int 0=Mon..6=Sun), start_time (datetime.time), end_time
-        start_date: ISO date string 'YYYY-MM-DD'
-        end_date: ISO date string 'YYYY-MM-DD'
-
-    Returns:
-        list of dicts, one per date in [start_date, end_date], each containing:
-            - date (str ISO), worked (bool), total_hours (float),
-            - shifts (list of {in, out, minutes}), is_late (bool), late_minutes (int),
-            - is_scheduled (bool), is_missed (bool)
+    Returns list of dicts per date with:
+        - date, worked, total_hours, shifts
+        - is_late, late_minutes (arrived after threshold)
+        - is_early_leave, early_leave_minutes (left before scheduled end)
+        - is_scheduled, is_missed (scheduled but didn't work, past date)
     """
     start = date.fromisoformat(start_date)
     end = date.fromisoformat(end_date)
@@ -38,7 +30,7 @@ def build_calendar_data(
     shifts_by_date: dict[str, list[dict]] = {}
     for shift in shifts:
         in_time_raw = shift.get("in", {}).get("time", "") or ""
-        shift_date_str = in_time_raw[:10]  # 'YYYY-MM-DD'
+        shift_date_str = in_time_raw[:10]
         shifts_by_date.setdefault(shift_date_str, []).append(shift)
 
     today = date.today()
@@ -53,7 +45,6 @@ def build_calendar_data(
         scheduled_for_day = schedule_lookup.get(dow, [])
 
         if day_shifts:
-            # Sort by clock-in time
             day_shifts_sorted = sorted(
                 day_shifts,
                 key=lambda s: (s.get("in", {}) or {}).get("time", ""),
@@ -92,6 +83,28 @@ def build_calendar_data(
                             is_late = True
                             late_minutes = int(round(delta))
 
+            # Early leave detection: compare last shift's out.time to scheduled end
+            is_early_leave = False
+            early_leave_minutes = 0
+            if scheduled_for_day:
+                last_out_raw = (day_shifts_sorted[-1].get("out", {}) or {}).get("time", "")
+                if last_out_raw:
+                    try:
+                        last_out_dt = datetime.fromisoformat(
+                            last_out_raw.replace("Z", "+00:00")
+                        )
+                    except ValueError:
+                        last_out_dt = None
+                    if last_out_dt is not None:
+                        scheduled_end = max(s.end_time for s in scheduled_for_day)
+                        from datetime import datetime as _dt
+                        sched_end_dt = _dt.combine(current, scheduled_end)
+                        last_out_naive = last_out_dt.replace(tzinfo=None) if last_out_dt.tzinfo else last_out_dt
+                        end_delta = (sched_end_dt - last_out_naive).total_seconds() / 60.0
+                        if end_delta > threshold:
+                            is_early_leave = True
+                            early_leave_minutes = int(round(end_delta))
+
             result.append({
                 "date": date_str,
                 "worked": True,
@@ -99,13 +112,13 @@ def build_calendar_data(
                 "shifts": shift_entries,
                 "is_late": is_late,
                 "late_minutes": late_minutes,
+                "is_early_leave": is_early_leave,
+                "early_leave_minutes": early_leave_minutes,
                 "is_scheduled": bool(scheduled_for_day),
                 "is_missed": False,
             })
         else:
-            # No shifts worked — check if this was a scheduled day
             is_scheduled = bool(scheduled_for_day)
-            # Only flag as missed if the day is in the past (or today) and was scheduled
             is_missed = is_scheduled and current <= today
 
             result.append({
@@ -115,6 +128,8 @@ def build_calendar_data(
                 "shifts": [],
                 "is_late": False,
                 "late_minutes": 0,
+                "is_early_leave": False,
+                "early_leave_minutes": 0,
                 "is_scheduled": is_scheduled,
                 "is_missed": is_missed,
             })
