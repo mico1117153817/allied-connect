@@ -329,3 +329,56 @@ async def create_local_account(
         "status": "created",
     }
 
+
+# ── View any employee's hours and calendar (manager) ──────────
+
+@router.get("/employee/{employee_id}/hours")
+async def get_employee_hours(
+    employee_id: str,
+    start: str = Query(...),
+    end: str = Query(...),
+    user: dict = Depends(require_manager),
+):
+    """Get any employee's shifts and total hours for a date range."""
+    shifts = await timestation.get_shifts(employee_id, start, end)
+    total_minutes = sum(int(s.get("total_minutes", 0) or 0) for s in shifts)
+    return {
+        "employee_id": employee_id,
+        "start": start,
+        "end": end,
+        "total_hours": round(total_minutes / 60.0, 2),
+        "shift_count": len(shifts),
+        "shifts": shifts,
+    }
+
+
+@router.get("/employee/{employee_id}/calendar")
+async def get_employee_calendar(
+    employee_id: str,
+    start: str = Query(...),
+    end: str = Query(...),
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Get any employee's calendar data with late-arrival detection."""
+    from app.services.calendar import build_calendar_data
+    from app.services.settings_service import get_setting
+    from app.config import settings
+
+    shifts = await timestation.get_shifts(employee_id, start, end)
+    scheduled_shifts = (
+        db.query(ScheduledShift)
+        .filter(ScheduledShift.employee_id == employee_id)
+        .all()
+    )
+    threshold_str = get_setting(db, "late_threshold_minutes")
+    threshold = int(threshold_str) if threshold_str else settings.LATE_THRESHOLD_MINUTES
+    calendar = build_calendar_data(shifts, scheduled_shifts, start, end, late_threshold_minutes=threshold)
+    return {
+        "employee_id": employee_id,
+        "start": start,
+        "end": end,
+        "late_threshold_minutes": threshold,
+        "days": calendar,
+    }
+
