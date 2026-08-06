@@ -21,7 +21,7 @@ from app.models.employee import Employee
 from app.models.time_off import TimeOffRequest
 from app.routers.auth import get_current_user, require_manager
 from app.services.email import send_time_off_notification
-from app.services.hour_balance_service import get_balance, deduct_hours
+from app.services.hour_balance_service import get_balance, deduct_hours, add_hours
 
 router = APIRouter(prefix="/api/time-off", tags=["time-off"])
 
@@ -202,7 +202,6 @@ def review_request(
                 pay_period_id=req.pay_period_id,
             )
         except ValueError as e:
-            # If balance is insufficient, note it but don't block the approval
             print(f"[time-off] WARNING: Could not deduct hours: {e}")
 
     # Look up the employee for notification
@@ -237,5 +236,50 @@ def review_request(
                     request_type=req.request_type,
                 )
             )
+
+    return _serialize(req, employee_name=employee_name)
+
+
+@router.put("/{request_id}/void", response_model=TimeOffOut)
+def void_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_manager),
+):
+    """Manager: void an approved time-off request and reverse the hour deduction.
+    Adds the hours back to the employee's balance with an audit trail entry."""
+    req = db.get(TimeOffRequest, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Time-off request not found")
+    if req.status != "approved":
+        raise HTTPException(status_code=400, detail=f"Only approved requests can be voided (current: {req.status})")
+
+    # Reverse the hour deduction if hours were used
+    if req.hour_type and req.hours_requested:
+        try:
+            add_hours(
+                db,
+                employee_id=req.employee_id,
+                type=req.hour_type,
+                amount=float(req.hours_requested),
+                input_by=user["timestation_id"],
+                input_by_name=user["name"],
+                reason=f"Voided time-off request #{req.id} ({req.start_date} to {req.end_date}) — hours returned",
+                pay_period_id=req.pay_period_id,
+            )
+        except ValueError as e:
+            print(f"[time-off] WARNING: Could not reverse hours: {e}")
+
+    req.status = "voided"
+    req.reviewed_by = user["timestation_id"]
+    req.reviewed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(req)
+
+    # Look up employee for notification
+    emp = db.execute(
+        select(Employee).where(Employee.timestation_id == req.employee_id)
+    ).scalars().first()
+    employee_name = emp.name if emp else req.employee_id
 
     return _serialize(req, employee_name=employee_name)

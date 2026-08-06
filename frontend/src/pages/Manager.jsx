@@ -60,6 +60,11 @@ export default function Manager() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['all-time-off'] }),
   })
 
+  const voidMutation = useMutation({
+    mutationFn: (id) => api.put(`/api/time-off/${id}/void`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['all-time-off'] }),
+  })
+
   const adjMutation = useMutation({
     mutationFn: (data) => api.post('/api/manager/pay-adjustment', data),
     onSuccess: () => {
@@ -72,6 +77,7 @@ export default function Manager() {
     pending: 'bg-yellow-100 text-yellow-800',
     approved: 'bg-green-100 text-green-800',
     denied: 'bg-red-100 text-red-800',
+    voided: 'bg-orange-100 text-orange-800',
   }[status] || 'bg-gray-100')
 
   return (
@@ -176,6 +182,16 @@ export default function Manager() {
                           className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
                         >
                           Deny
+                        </button>
+                      </div>
+                    )}
+                    {r.status === 'approved' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => voidMutation.mutate(r.id)}
+                          className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
+                        >
+                          Void
                         </button>
                       </div>
                     )}
