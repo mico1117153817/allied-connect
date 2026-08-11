@@ -44,9 +44,15 @@ export default function TimeOff() {
   const handleSubmit = (e) => {
     e.preventDefault()
     setError('')
-    if (formData.end_date < formData.start_date) {
-      setError('End date must be after start date')
-      return
+    if (formData.request_type !== 'back_hours') {
+      if (!formData.start_date || !formData.end_date) {
+        setError('Start date and end date are required')
+        return
+      }
+      if (formData.end_date < formData.start_date) {
+        setError('End date must be after start date')
+        return
+      }
     }
     if (formData.hour_type && !formData.pay_period_id) {
       setError('Please select a pay period when using hours')
@@ -90,7 +96,14 @@ export default function TimeOff() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
               <select
                 value={formData.request_type}
-                onChange={(e) => setFormData({ ...formData, request_type: e.target.value })}
+                onChange={(e) => {
+                  const newType = e.target.value
+                  if (newType === 'back_hours') {
+                    setFormData({ ...formData, request_type: newType, hour_type: 'back_hours', start_date: '', end_date: '' })
+                  } else {
+                    setFormData({ ...formData, request_type: newType })
+                  }
+                }}
                 className="w-full px-3 py-2 border rounded-lg"
               >
                 <option value="vacation">Vacation</option>
@@ -149,27 +162,36 @@ export default function TimeOff() {
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  required
-                  value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <input
-                  type="date"
-                  required
-                  value={formData.end_date}
-                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
+              {formData.request_type !== 'back_hours' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.start_date}
+                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.end_date}
+                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                </>
+              )}
             </div>
+            {formData.request_type === 'back_hours' && (
+              <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+                Back hours requests don't require dates — just enter the hours and select a pay period below.
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Reason (optional)</label>
               <textarea

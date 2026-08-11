@@ -28,8 +28,8 @@ router = APIRouter(prefix="/api/time-off", tags=["time-off"])
 
 class TimeOffCreate(BaseModel):
     request_type: str = Field(..., description="vacation | sick | personal | unpaid | back_hours")
-    start_date: date
-    end_date: date
+    start_date: Optional[date] = None  # Not required for back_hours
+    end_date: Optional[date] = None  # Not required for back_hours
     reason: Optional[str] = None
     hour_type: Optional[str] = Field(None, description="back_hours | vacation_hours | sick_hours")
     hours_requested: Optional[float] = Field(None, description="Number of hours to use from balance")
@@ -45,8 +45,8 @@ class TimeOffOut(BaseModel):
     employee_id: str
     employee_name: Optional[str] = None
     request_type: str
-    start_date: date
-    end_date: date
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     reason: Optional[str] = None
     status: str
     reviewed_by: Optional[str] = None
@@ -54,6 +54,7 @@ class TimeOffOut(BaseModel):
     created_at: Optional[datetime] = None
     hour_type: Optional[str] = None
     hours_requested: Optional[float] = None
+    pay_period_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -94,8 +95,28 @@ def create_request(
             status_code=400,
             detail=f"request_type must be one of {sorted(VALID_REQUEST_TYPES)}",
         )
-    if payload.end_date < payload.start_date:
-        raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
+
+    # Back hours requests don't need start/end dates
+    is_back_hours_request = payload.request_type == "back_hours"
+
+    if is_back_hours_request:
+        # Back hours: no dates, must have hour_type, hours_requested, and pay_period_id
+        if not payload.hour_type:
+            payload.hour_type = "back_hours"  # default
+        if not payload.hours_requested or payload.hours_requested <= 0:
+            raise HTTPException(400, "Hours requested is required for back hours")
+        if not payload.pay_period_id:
+            raise HTTPException(400, "Pay period is required for back hours")
+        # Use today's date as placeholder for start/end
+        today = date.today()
+        payload.start_date = today
+        payload.end_date = today
+    else:
+        # All other types require start/end dates
+        if not payload.start_date or not payload.end_date:
+            raise HTTPException(400, "Start date and end date are required for this request type")
+        if payload.end_date < payload.start_date:
+            raise HTTPException(400, "End date must be on or after start date")
 
     # Validate hour type + amount if using hours
     if payload.hour_type:
@@ -103,10 +124,51 @@ def create_request(
             raise HTTPException(400, f"hour_type must be one of {VALID_HOUR_TYPES}")
         if not payload.hours_requested or payload.hours_requested <= 0:
             raise HTTPException(400, "hours_requested must be positive when hour_type is specified")
-        # Check they have enough balance
-        current = get_balance(db, user["timestation_id"], payload.hour_type)
-        if current < payload.hours_requested:
-            raise HTTPException(400, f"Insufficient {payload.hour_type} balance: have {current}, requested {payload.hours_requested}")
+
+        # Check they have enough balance — show remaining in error
+        current_balance = get_balance(db, user["timestation_id"], payload.hour_type)
+        if current_balance < payload.hours_requested:
+            type_label = payload.hour_type.replace("_", " ")
+            raise HTTPException(
+                400,
+                f"Insufficient {type_label} — you have {current_balance}h remaining, but requested {payload.hours_requested}h"
+            )
+
+        # Check 80-hour cap for the pay period
+        if payload.pay_period_id:
+            from app.models.pay_period import PayPeriod
+            from app.models.hour_balance import HourTransaction
+            pp = db.query(PayPeriod).filter(PayPeriod.id == payload.pay_period_id).first()
+            if pp:
+                # Sum existing approved deductions for this pay period
+                existing_deductions = (
+                    db.query(HourTransaction)
+                    .filter(
+                        HourTransaction.employee_id == user["timestation_id"],
+                        HourTransaction.pay_period_id == payload.pay_period_id,
+                        HourTransaction.action == "deducted",
+                    )
+                    .all()
+                )
+                existing_hours = sum(abs(float(t.amount)) for t in existing_deductions)
+                # Also check pending requests for this pay period
+                pending_requests = (
+                    db.query(TimeOffRequest)
+                    .filter(
+                        TimeOffRequest.employee_id == user["timestation_id"],
+                        TimeOffRequest.pay_period_id == payload.pay_period_id,
+                        TimeOffRequest.status == "pending",
+                    )
+                    .all()
+                )
+                pending_hours = sum(float(r.hours_requested) for r in pending_requests if r.hours_requested)
+                total_after = existing_hours + pending_hours + payload.hours_requested
+                if total_after > 80:
+                    remaining_allowed = 80 - existing_hours - pending_hours
+                    raise HTTPException(
+                        400,
+                        f"You cannot exceed 80 hours per pay period. Already used/pending: {existing_hours + pending_hours}h, requested: {payload.hours_requested}h. You can use up to {remaining_allowed}h more."
+                    )
 
     req = TimeOffRequest(
         employee_id=user["timestation_id"],
