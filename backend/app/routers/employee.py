@@ -11,6 +11,7 @@ from app.models.scheduled_shift import ScheduledShift
 from app.models.pay_adjustment import PayAdjustment
 from app.models.pay_period import PayPeriod
 from app.models.hour_balance import HourBalance, HourTransaction
+from app.models.time_off import TimeOffRequest
 from app.services.timestation import timestation
 from app.services.calendar import build_calendar_data
 from app.services.settings_service import get_setting
@@ -228,37 +229,47 @@ async def get_pay_period_data(
     current_balances = get_all_balances(db, user["timestation_id"])
 
     # Get hour transactions tagged to this pay period (deductions from approved time-off)
+    # Exclude transactions from voided requests (both the original deduction and the reversal)
     period_transactions = (
         db.query(HourTransaction)
         .filter(
             HourTransaction.employee_id == user["timestation_id"],
             HourTransaction.pay_period_id == period_id,
+            HourTransaction.action == "deducted",
         )
         .order_by(HourTransaction.created_at.desc())
         .all()
     )
+    # Filter out deductions whose time-off request was later voided
     hours_used = []
     back_hours_used = 0.0
     vacation_hours_used = 0.0
     sick_hours_used = 0.0
     for t in period_transactions:
-        amt = float(t.amount)
+        # Check if this deduction's time-off request was voided
+        is_voided = False
+        if t.time_off_request_id:
+            related_req = db.query(TimeOffRequest).filter(TimeOffRequest.id == t.time_off_request_id).first()
+            if related_req and related_req.status == "voided":
+                is_voided = True
+        if is_voided:
+            continue  # Skip voided deductions
+
+        amt = abs(float(t.amount))
         hours_used.append({
             "type": t.type,
-            "amount": amt,
+            "amount": float(t.amount),
             "action": t.action,
             "reason": t.reason,
             "input_by_name": t.input_by_name,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         })
-        # Only count deductions (negative amounts) as hours used
-        if t.action == "deducted":
-            if t.type == "back_hours":
-                back_hours_used += abs(amt)
-            elif t.type == "vacation_hours":
-                vacation_hours_used += abs(amt)
-            elif t.type == "sick_hours":
-                sick_hours_used += abs(amt)
+        if t.type == "back_hours":
+            back_hours_used += amt
+        elif t.type == "vacation_hours":
+            vacation_hours_used += amt
+        elif t.type == "sick_hours":
+            sick_hours_used += amt
 
     # Get employee's private hourly rate for gross pay calculation
     emp = db.query(Employee).filter(Employee.timestation_id == user["timestation_id"]).first()
