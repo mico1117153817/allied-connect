@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.database import get_db
 from app.models.employee import Employee
+from app.models.employee_profile import EmployeeProfile
 from app.models.scheduled_shift import ScheduledShift
 from app.models.pay_adjustment import PayAdjustment
 from app.models.pay_period import PayPeriod
@@ -16,7 +17,7 @@ from app.services.timestation import timestation
 from app.services.calendar import build_calendar_data
 from app.services.settings_service import get_setting
 from app.services.hour_balance_service import get_all_balances, get_transaction_history
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, require_manager
 
 router = APIRouter(prefix="/api/me", tags=["employee"])
 
@@ -34,6 +35,30 @@ class EmailUpdate(BaseModel):
         if "@" not in v or "." not in v.split("@")[-1]:
             raise ValueError("must be a valid email address")
         return v
+
+
+class ProfileUpdate(BaseModel):
+    name: str
+    address: str
+    email: str
+    phone: str
+    show_in_directory: bool = False
+
+    @field_validator("name", "address", "phone")
+    @classmethod
+    def _require_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("is required")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def _validate_profile_email(cls, value: str) -> str:
+        value = value.strip()
+        if "@" not in value or "." not in value.split("@")[-1]:
+            raise ValueError("must be a valid email address")
+        return value
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -169,6 +194,53 @@ async def update_email(
         "timestation_id": employee.timestation_id,
         "email": employee.email,
     }
+
+
+def _serialize_profile(profile: EmployeeProfile) -> dict:
+    return {
+        "name": profile.name,
+        "address": profile.address,
+        "email": profile.email,
+        "phone": profile.phone,
+        "show_in_directory": profile.show_in_directory,
+    }
+
+
+@router.get("/profile-status")
+async def get_profile_status(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    profile = db.query(EmployeeProfile).filter(EmployeeProfile.employee_id == user["timestation_id"]).first()
+    return {"is_complete": profile is not None, "profile": _serialize_profile(profile) if profile else None}
+
+
+@router.put("/profile")
+async def update_profile(payload: ProfileUpdate, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    employee = db.query(Employee).filter(Employee.timestation_id == user["timestation_id"]).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee record not found")
+    profile = db.query(EmployeeProfile).filter(EmployeeProfile.employee_id == user["timestation_id"]).first()
+    if not profile:
+        profile = EmployeeProfile(employee_id=user["timestation_id"], **payload.model_dump())
+        db.add(profile)
+    else:
+        for field, value in payload.model_dump().items():
+            setattr(profile, field, value)
+    employee.name = payload.name
+    employee.email = payload.email
+    db.commit()
+    db.refresh(profile)
+    return {"is_complete": True, "profile": _serialize_profile(profile)}
+
+
+@router.get("/all-contact-info")
+async def get_all_contact_info(user: dict = Depends(require_manager), db: Session = Depends(get_db)):
+    profiles = db.query(EmployeeProfile).order_by(EmployeeProfile.name).all()
+    return {"employees": [{"employee_id": profile.employee_id, **_serialize_profile(profile)} for profile in profiles]}
+
+
+@router.get("/directory")
+async def employee_directory(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    profiles = db.query(EmployeeProfile).filter(EmployeeProfile.show_in_directory.is_(True)).order_by(EmployeeProfile.name).all()
+    return {"employees": [{"name": profile.name, "phone": profile.phone} for profile in profiles]}
 
 
 # ── Pay Periods (employee view) ───────────────────────────────

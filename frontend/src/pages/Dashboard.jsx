@@ -241,6 +241,8 @@ export default function Dashboard() {
         <div className="flex gap-3 mb-6">
           <a href={viewingEmployee ? `/time-off?employee=${selectedEmployeeId}` : '/time-off'} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Request Time Off</a>
           <a href="/documents" className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Documents</a>
+          {!viewingEmployee && <a href="/my-info" className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">My Info</a>}
+          {!viewingEmployee && <a href="/directory" className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Employee Directory</a>}
         </div>
 
         {/* Hour Balances */}

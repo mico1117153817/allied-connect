@@ -1,5 +1,6 @@
 from app.models.database import Base, engine, SessionLocal, get_db
 from app.models.employee import Employee
+from app.models.employee_profile import EmployeeProfile
 from app.models.scheduled_shift import ScheduledShift
 from app.models.time_off import TimeOffRequest
 from app.models.pay_adjustment import PayAdjustment
@@ -13,7 +14,7 @@ from app.models.setting import Setting
 
 __all__ = [
     "Base", "engine", "SessionLocal", "get_db",
-    "Employee", "ScheduledShift", "TimeOffRequest",
+    "Employee", "EmployeeProfile", "ScheduledShift", "TimeOffRequest",
     "PayAdjustment", "PayPeriod", "HourBalance", "HourTransaction",
     "Document", "DocumentContent", "DocumentSignature", "DocumentAssignment",
     "DocumentRecipientTemplate", "Setting",
