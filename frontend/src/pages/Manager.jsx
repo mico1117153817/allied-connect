@@ -97,6 +97,14 @@ export default function Manager() {
   const pendingRequestCount = timeOffData?.requests?.filter(request => request.status === 'pending').length || 0
   const payPeriodFor = (request) => empPeriods?.pay_periods?.find(period => period.id === request?.pay_period_id)
 
+  const formatEasternTime = (timestamp) => timestamp
+    ? new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short',
+      }).format(new Date(timestamp))
+    : 'Unknown'
+
   const statusColor = (status) => ({
     pending: 'bg-yellow-100 text-yellow-800',
     approved: 'bg-green-100 text-green-800',
@@ -566,7 +574,7 @@ export default function Manager() {
                 </>
               )}
               <div className="sm:col-span-2"><dt className="text-gray-500">Reason</dt><dd className="font-semibold">{selectedRequest.reason?.trim() || 'No reason provided'}</dd></div>
-              <div className="sm:col-span-2"><dt className="text-gray-500">Submitted</dt><dd className="font-semibold">{selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleString() : 'Unknown'}</dd></div>
+              <div className="sm:col-span-2"><dt className="text-gray-500">Submitted (Eastern Time)</dt><dd className="font-semibold">{formatEasternTime(selectedRequest.created_at)}</dd></div>
             </dl>
             {selectedRequest.status === 'pending' && (
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-6 pt-5 border-t">

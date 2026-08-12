@@ -8,7 +8,7 @@ Endpoints
 - PUT    /api/time-off/{id}/review -> manager approves/denies, deducts hours, sends email
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -70,6 +70,14 @@ VALID_HOUR_TYPES = {"back_hours", "vacation_hours", "sick_hours"}
 VALID_REVIEW_STATUSES = {"approved", "denied"}
 
 
+def _utc_iso(value: Optional[datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def _serialize(req: TimeOffRequest, employee_name: Optional[str] = None) -> dict:
     return {
         "id": req.id,
@@ -81,8 +89,8 @@ def _serialize(req: TimeOffRequest, employee_name: Optional[str] = None) -> dict
         "reason": req.reason,
         "status": req.status,
         "reviewed_by": req.reviewed_by,
-        "reviewed_at": req.reviewed_at,
-        "created_at": req.created_at,
+        "reviewed_at": _utc_iso(req.reviewed_at),
+        "created_at": _utc_iso(req.created_at),
         "hour_type": req.hour_type,
         "hours_requested": float(req.hours_requested) if req.hours_requested else None,
         "pay_period_id": req.pay_period_id,

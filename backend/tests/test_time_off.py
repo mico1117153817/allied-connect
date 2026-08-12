@@ -130,6 +130,16 @@ def test_back_hours_accepts_blank_date_fields_from_browser_form():
     assert payload.end_date is None
 
 
+def test_created_timestamp_is_serialized_as_explicit_utc(client):
+    created = client.post(
+        "/api/time-off/",
+        json={"request_type": "vacation", "start_date": "2026-08-10", "end_date": "2026-08-10"},
+    )
+    assert created.status_code == 201
+    assert created.json()["created_at"].endswith("Z")
+
+
+
 def test_create_request_invalid_type(client):
     resp = client.post(
         "/api/time-off/",
