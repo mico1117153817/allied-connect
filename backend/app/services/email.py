@@ -116,3 +116,49 @@ async def send_time_off_notification(
             timeout=15.0,
         )
         return {"status_code": response.status_code, "body": response.json()}
+
+
+async def _send_postmark_email(to_email: str, subject: str, html: str) -> Optional[dict]:
+    """Send a generic Allied Connect email, or log it when Postmark is not configured."""
+    if not settings.POSTMARK_API_KEY:
+        print(f"[email] (dev mode) document notification -> to={to_email!r} subject={subject!r}")
+        return None
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.postmarkapp.com/email",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-Postmark-Server-Token": settings.POSTMARK_API_KEY,
+            },
+            json={"From": settings.EMAIL_FROM, "To": to_email, "Subject": subject, "HtmlBody": html},
+            timeout=15.0,
+        )
+        return {"status_code": response.status_code, "body": response.json()}
+
+
+async def send_document_notification(
+    to_email: str,
+    employee_name: str,
+    document_title: str,
+    requires_signature: bool,
+) -> Optional[dict]:
+    action = "Review and signature are required before you can continue using Allied Connect." if requires_signature else "Please log in to Allied Connect to review it."
+    html = f"""<html><body style="font-family:Arial;color:#1f2937">
+    <h2>New Document Available</h2><p>Hi <strong>{employee_name}</strong>,</p>
+    <p><strong>{document_title}</strong> has been sent to you.</p><p>{action}</p>
+    <p><a href="{settings.FRONTEND_URL}/documents">Open Allied Connect Documents</a></p>
+    </body></html>"""
+    return await _send_postmark_email(to_email, f"New Document - {document_title}", html)
+
+
+async def send_document_void_notification(
+    to_email: str,
+    employee_name: str,
+    document_title: str,
+) -> Optional[dict]:
+    html = f"""<html><body style="font-family:Arial;color:#1f2937">
+    <h2>Document Voided</h2><p>Hi <strong>{employee_name}</strong>,</p>
+    <p><strong>{document_title}</strong> has been voided by management. It is no longer available and no action is required.</p>
+    </body></html>"""
+    return await _send_postmark_email(to_email, f"Document Voided - {document_title}", html)
