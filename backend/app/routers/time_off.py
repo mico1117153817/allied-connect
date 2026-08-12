@@ -12,7 +12,7 @@ from datetime import datetime, date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -34,6 +34,12 @@ class TimeOffCreate(BaseModel):
     hour_type: Optional[str] = Field(None, description="back_hours | vacation_hours | sick_hours")
     hours_requested: Optional[float] = Field(None, description="Number of hours to use from balance")
     pay_period_id: Optional[int] = Field(None, description="Which pay period the hours apply to")
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def blank_dates_are_none(cls, value):
+        """HTML date inputs send an empty string when intentionally blank."""
+        return None if value == "" else value
 
 
 class TimeOffReview(BaseModel):

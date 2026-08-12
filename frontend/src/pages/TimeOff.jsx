@@ -43,16 +43,32 @@ export default function TimeOff() {
     queryFn: () => api.get(viewingEmployee ? '/api/manager/pay-periods' : '/api/me/pay-periods').then(r => r.data),
   })
 
+  const formatApiError = (err) => {
+    const detail = err.response?.data?.detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) {
+      return detail.map(item => item?.msg || String(item)).join('; ')
+    }
+    return 'Failed to submit request'
+  }
+
   const createMutation = useMutation({
-    mutationFn: (requestData) => viewingEmployee
-      ? api.post(`/api/manager/employee/${selectedEmployeeId}/time-off`, requestData)
-      : api.post('/api/time-off/', requestData),
+    mutationFn: (requestData) => {
+      const payload = {
+        ...requestData,
+        start_date: requestData.start_date || null,
+        end_date: requestData.end_date || null,
+      }
+      return viewingEmployee
+        ? api.post(`/api/manager/employee/${selectedEmployeeId}/time-off`, payload)
+        : api.post('/api/time-off/', payload)
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['time-off-history', selectedEmployeeId || 'self'] })
       setShowForm(false)
       setFormData({ request_type: 'vacation', start_date: '', end_date: '', reason: '', hour_type: null, hours_requested: null, pay_period_id: null })
     },
-    onError: (err) => setError(err.response?.data?.detail || 'Failed to submit request'),
+    onError: (err) => setError(formatApiError(err)),
   })
 
   const handleSubmit = (e) => {
@@ -67,6 +83,10 @@ export default function TimeOff() {
         setError('End date must be after start date')
         return
       }
+    }
+    if (formData.hour_type && (!formData.hours_requested || formData.hours_requested <= 0)) {
+      setError('Please enter the number of hours to use')
+      return
     }
     if (formData.hour_type && !formData.pay_period_id) {
       setError('Please select a pay period when using hours')

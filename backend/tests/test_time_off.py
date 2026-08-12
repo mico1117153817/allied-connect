@@ -20,7 +20,7 @@ from app.models.database import Base, get_db
 from app.models.employee import Employee
 from app.models.time_off import TimeOffRequest
 from app.routers.auth import get_current_user, require_manager
-from app.routers.time_off import router as time_off_router
+from app.routers.time_off import TimeOffCreate, router as time_off_router
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +100,20 @@ def test_create_time_off_request(client):
     assert body["end_date"] == "2026-08-14"
     assert body["reviewed_by"] is None
     assert body["reviewed_at"] is None
+
+
+def test_back_hours_accepts_blank_date_fields_from_browser_form():
+    """Browser form empty strings normalize to None before endpoint validation."""
+    payload = TimeOffCreate.model_validate({
+        "request_type": "back_hours",
+        "start_date": "",
+        "end_date": "",
+        "hour_type": "back_hours",
+        "hours_requested": 4,
+        "pay_period_id": 1,
+    })
+    assert payload.start_date is None
+    assert payload.end_date is None
 
 
 def test_create_request_invalid_type(client):
