@@ -26,40 +26,46 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900">
-      <div className="max-w-2xl w-full space-y-8 p-8 bg-white rounded-2xl shadow-xl">
-        <div className="text-center">
-          <img src="/allied-logo.jpg" alt="Allied Alliance Group Inc." className="mx-auto mb-2 w-full h-auto max-w-lg rounded-lg" />
-          <p className="mt-2 text-sm text-gray-600">
-            Sign in with your PIN
-          </p>
-        </div>
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div>
+    <main className="login-shell">
+      <div className="login-bridge-art" aria-hidden="true">
+        <div className="bridge-deck" />
+        <div className="bridge-tower bridge-tower-left" />
+        <div className="bridge-tower bridge-tower-right" />
+        <div className="bridge-cable bridge-cable-left" />
+        <div className="bridge-cable bridge-cable-right" />
+      </div>
+      <div className="login-sweep login-sweep-one" aria-hidden="true" />
+      <div className="login-sweep login-sweep-two" aria-hidden="true" />
+
+      <section className="login-content">
+        <header className="login-heading">
+          <h1>ALLIED CONNECT</h1>
+          <p>EMPLOYEE PORTAL</p>
+        </header>
+
+        <section className="login-card" aria-label="Employee portal sign in">
+          <img src="/allied-logo.jpg" alt="Allied Alliance Group Inc." className="login-logo" />
+          <p className="login-prompt">Sign in with your PIN</p>
+          <form onSubmit={handleSubmit} className="login-form">
+            <label htmlFor="pin" className="sr-only">Enter PIN</label>
             <input
+              id="pin"
               type="password"
+              inputMode="numeric"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
               placeholder="Enter PIN"
               maxLength="4"
-              className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl text-center text-3xl tracking-[0.5em] focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+              className="login-pin"
               autoFocus
             />
-          </div>
-          {error && (
-            <p className="text-red-500 text-sm text-center bg-red-50 py-2 px-4 rounded-lg">
-              {error}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={loading || pin.length < 4}
-            className="w-full py-3 bg-blue-700 text-white rounded-xl hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg transition"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-      </div>
-    </div>
+            {error && <p className="login-error" role="alert">{error}</p>}
+            <button type="submit" disabled={loading || pin.length < 4} className="login-button">
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+        </section>
+      </section>
+    </main>
   )
 }
