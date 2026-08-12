@@ -239,8 +239,44 @@ async def get_all_contact_info(user: dict = Depends(require_manager), db: Sessio
 
 @router.get("/directory")
 async def employee_directory(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    profiles = db.query(EmployeeProfile).filter(EmployeeProfile.show_in_directory.is_(True)).order_by(EmployeeProfile.name).all()
-    return {"employees": [{"name": profile.name, "phone": profile.phone} for profile in profiles]}
+    """Return privacy-scoped directory data for the authenticated role."""
+    profiles = db.query(EmployeeProfile).order_by(EmployeeProfile.name).all()
+    employee_roles = {
+        employee.timestation_id: employee.role
+        for employee in db.query(Employee).filter(Employee.is_active.is_(True)).all()
+    }
+    is_management_view = user.get("role") in ("manager", "super_admin")
+
+    if is_management_view:
+        return {
+            "is_management_view": True,
+            "employees": [
+                {
+                    "employee_id": profile.employee_id,
+                    **_serialize_profile(profile),
+                    "role": employee_roles.get(profile.employee_id, "employee"),
+                }
+                for profile in profiles
+            ],
+        }
+
+    visible_profiles = [
+        profile for profile in profiles
+        if profile.show_in_directory or employee_roles.get(profile.employee_id) in ("manager", "super_admin")
+    ]
+    role_order = {"super_admin": 0, "manager": 1, "employee": 2}
+    visible_profiles.sort(key=lambda profile: (role_order.get(employee_roles.get(profile.employee_id, "employee"), 2), profile.name.lower()))
+    return {
+        "is_management_view": False,
+        "employees": [
+            {
+                "name": profile.name,
+                "phone": profile.phone,
+                "role": employee_roles.get(profile.employee_id, "employee"),
+            }
+            for profile in visible_profiles
+        ],
+    }
 
 
 # ── Pay Periods (employee view) ───────────────────────────────
