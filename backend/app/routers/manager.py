@@ -477,6 +477,71 @@ async def get_employee_pay_period(
     return data
 
 
+@router.get("/employee/{employee_id}/balances")
+async def get_employee_balances(
+    employee_id: str,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Return the selected employee's balances and audit history to management."""
+    employee = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not employee:
+        raise HTTPException(404, "Employee not found")
+    return {
+        "employee_id": employee_id,
+        "name": employee.name,
+        "balances": get_all_balances(db, employee_id),
+        "transactions": get_transaction_history(db, employee_id),
+    }
+
+
+@router.get("/employee/{employee_id}/time-off")
+async def get_employee_time_off(
+    employee_id: str,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Return one employee's complete time-off request history."""
+    employee = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not employee:
+        raise HTTPException(404, "Employee not found")
+    from app.routers.time_off import _serialize
+    rows = (
+        db.query(TimeOffRequest)
+        .filter(TimeOffRequest.employee_id == employee_id)
+        .order_by(TimeOffRequest.created_at.desc(), TimeOffRequest.id.desc())
+        .all()
+    )
+    return {"requests": [_serialize(row, employee_name=employee.name) for row in rows]}
+
+
+@router.post("/employee/{employee_id}/time-off")
+async def create_employee_time_off(
+    employee_id: str,
+    payload: dict,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """Submit a time-off request on behalf of the employee selected in Employee View."""
+    employee = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not employee:
+        raise HTTPException(404, "Employee not found")
+    from app.routers.time_off import TimeOffCreate, create_request
+    try:
+        request_payload = TimeOffCreate.model_validate(payload)
+    except Exception as exc:
+        raise HTTPException(422, detail=str(exc))
+    return create_request(
+        payload=request_payload,
+        db=db,
+        user={
+            "timestation_id": employee_id,
+            "name": employee.name,
+            "role": employee.role,
+        },
+    )
+
+
 # ── Pay Period Management ──────────────────────────────────────
 
 from app.models.pay_period import PayPeriod as PayPeriodModel

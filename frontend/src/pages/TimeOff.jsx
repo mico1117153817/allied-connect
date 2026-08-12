@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { logout, getEmployee, isManager } from '../lib/auth'
 
 export default function TimeOff() {
   const employee = getEmployee()
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const selectedEmployeeId = isManager() ? (searchParams.get('employee') || '') : ''
+  const viewingEmployee = !!selectedEmployeeId
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     request_type: 'vacation',
@@ -18,23 +22,33 @@ export default function TimeOff() {
   })
   const [error, setError] = useState('')
 
+  const { data: selectedEmployee } = useQuery({
+    queryKey: ['employee-view-selected', selectedEmployeeId],
+    queryFn: () => api.get('/api/manager/employees').then(r => r.data.employees.find(item => item.timestation_id === selectedEmployeeId)),
+    enabled: viewingEmployee,
+  })
+
   const { data, isLoading } = useQuery({
-    queryKey: ['my-time-off'],
-    queryFn: () => api.get('/api/time-off/').then(r => {
-      const d = r.data
-      return Array.isArray(d) ? { requests: d } : d
-    }),
+    queryKey: ['time-off-history', selectedEmployeeId || 'self'],
+    queryFn: () => viewingEmployee
+      ? api.get(`/api/manager/employee/${selectedEmployeeId}/time-off`).then(r => r.data)
+      : api.get('/api/time-off/').then(r => {
+          const d = r.data
+          return Array.isArray(d) ? { requests: d } : d
+        }),
   })
 
   const { data: ppList } = useQuery({
-    queryKey: ['pay-periods'],
-    queryFn: () => api.get('/api/me/pay-periods').then(r => r.data),
+    queryKey: ['pay-periods', viewingEmployee ? 'management' : 'self'],
+    queryFn: () => api.get(viewingEmployee ? '/api/manager/pay-periods' : '/api/me/pay-periods').then(r => r.data),
   })
 
   const createMutation = useMutation({
-    mutationFn: (data) => api.post('/api/time-off/', data),
+    mutationFn: (requestData) => viewingEmployee
+      ? api.post(`/api/manager/employee/${selectedEmployeeId}/time-off`, requestData)
+      : api.post('/api/time-off/', requestData),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['my-time-off'] })
+      qc.invalidateQueries({ queryKey: ['time-off-history', selectedEmployeeId || 'self'] })
       setShowForm(false)
       setFormData({ request_type: 'vacation', start_date: '', end_date: '', reason: '', hour_type: null, hours_requested: null, pay_period_id: null })
     },
@@ -65,6 +79,7 @@ export default function TimeOff() {
     pending: 'bg-yellow-100 text-yellow-800',
     approved: 'bg-green-100 text-green-800',
     denied: 'bg-red-100 text-red-800',
+    voided: 'bg-orange-100 text-orange-800',
   }[status] || 'bg-gray-100 text-gray-800')
 
   return (
@@ -76,13 +91,18 @@ export default function TimeOff() {
             <h1 className="text-xl font-bold">Time Off Requests</h1>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/dashboard" className="text-sm text-blue-600 hover:underline">← Dashboard</a>
+            <a href={viewingEmployee ? `/dashboard?employee=${selectedEmployeeId}` : '/dashboard'} className="text-sm text-blue-600 hover:underline">← Dashboard</a>
             <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
           </div>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-6">
+        {viewingEmployee && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            Submitting and viewing requests as <span className="font-semibold">{selectedEmployee?.name || selectedEmployeeId}</span>. Requests still enter the normal approval process.
+          </div>
+        )}
         <button
           onClick={() => setShowForm(!showForm)}
           className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
@@ -224,7 +244,7 @@ export default function TimeOff() {
                 <div key={r.id} className="flex justify-between items-center p-4 border rounded-lg">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium capitalize">{r.type}</span>
+                      <span className="font-medium capitalize">{(r.request_type || r.type || '').replace('_', ' ')}</span>
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor(r.status)}`}>
                         {r.status}
                       </span>

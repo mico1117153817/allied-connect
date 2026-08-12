@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { getEmployee, logout, isManager } from '../lib/auth'
 
 export default function Dashboard() {
   const employee = getEmployee()
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedEmployeeId = isManager() ? (searchParams.get('employee') || '') : ''
+  const viewingEmployee = !!selectedEmployeeId
   const [monthOffset, setMonthOffset] = useState(0)
   const [emailInput, setEmailInput] = useState('')
   const [emailMsg, setEmailMsg] = useState('')
@@ -20,42 +24,66 @@ export default function Dashboard() {
   const startStr = start.toISOString().slice(0, 10)
   const endStr = end.toISOString().slice(0, 10)
 
+  const { data: managementEmployees } = useQuery({
+    queryKey: ['employee-view-employees'],
+    queryFn: () => api.get('/api/manager/employees').then(r => r.data),
+    enabled: isManager(),
+  })
+
+  const selectedEmployee = managementEmployees?.employees?.find(e => e.timestation_id === selectedEmployeeId)
+
   const { data: hoursData, isLoading: hoursLoading } = useQuery({
-    queryKey: ['hours', startStr, endStr],
-    queryFn: () => api.get('/api/me/hours', { params: { start: startStr, end: endStr } }).then(r => r.data),
+    queryKey: ['hours', selectedEmployeeId || 'self', startStr, endStr],
+    queryFn: () => viewingEmployee
+      ? api.get(`/api/manager/employee/${selectedEmployeeId}/hours`, { params: { start: startStr, end: endStr } }).then(r => r.data)
+      : api.get('/api/me/hours', { params: { start: startStr, end: endStr } }).then(r => r.data),
+    enabled: !isManager() || viewingEmployee,
   })
 
   const { data: calData, isLoading: calLoading } = useQuery({
-    queryKey: ['calendar', startStr, endStr],
-    queryFn: () => api.get('/api/me/calendar', { params: { start: startStr, end: endStr } }).then(r => r.data),
+    queryKey: ['calendar', selectedEmployeeId || 'self', startStr, endStr],
+    queryFn: () => viewingEmployee
+      ? api.get(`/api/manager/employee/${selectedEmployeeId}/calendar`, { params: { start: startStr, end: endStr } }).then(r => r.data)
+      : api.get('/api/me/calendar', { params: { start: startStr, end: endStr } }).then(r => r.data),
+    enabled: !isManager() || viewingEmployee,
   })
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: () => api.get('/api/me/').then(r => r.data),
+    enabled: !viewingEmployee,
   })
 
   // Pay periods
   const { data: ppList } = useQuery({
-    queryKey: ['pay-periods'],
-    queryFn: () => api.get('/api/me/pay-periods').then(r => r.data),
+    queryKey: ['pay-periods', viewingEmployee ? 'management' : 'self'],
+    queryFn: () => api.get(viewingEmployee ? '/api/manager/pay-periods' : '/api/me/pay-periods').then(r => r.data),
+    enabled: !isManager() || viewingEmployee,
   })
 
   const { data: ppData, isLoading: ppLoading } = useQuery({
-    queryKey: ['pay-period-detail', selectedPpId],
-    queryFn: () => api.get(`/api/me/pay-period/${selectedPpId}`).then(r => r.data),
-    enabled: !!selectedPpId,
+    queryKey: ['pay-period-detail', selectedEmployeeId || 'self', selectedPpId],
+    queryFn: () => viewingEmployee
+      ? api.get(`/api/manager/employee/${selectedEmployeeId}/pay-period/${selectedPpId}`).then(r => r.data)
+      : api.get(`/api/me/pay-period/${selectedPpId}`).then(r => r.data),
+    enabled: !!selectedPpId && (!isManager() || viewingEmployee),
   })
 
   // Hour balances
   const { data: balancesData } = useQuery({
-    queryKey: ['balances'],
-    queryFn: () => api.get('/api/me/balances').then(r => r.data),
+    queryKey: ['balances', selectedEmployeeId || 'self'],
+    queryFn: () => viewingEmployee
+      ? api.get(`/api/manager/employee/${selectedEmployeeId}/balances`).then(r => r.data)
+      : api.get('/api/me/balances').then(r => r.data),
+    enabled: !isManager() || viewingEmployee,
   })
 
   const { data: balanceHistory } = useQuery({
-    queryKey: ['balance-history'],
-    queryFn: () => api.get('/api/me/balance-history').then(r => r.data),
+    queryKey: ['balance-history', selectedEmployeeId || 'self'],
+    queryFn: () => viewingEmployee
+      ? api.get(`/api/manager/employee/${selectedEmployeeId}/balances`).then(r => r.data)
+      : api.get('/api/me/balance-history').then(r => r.data),
+    enabled: !isManager() || viewingEmployee,
   })
 
   const emailMutation = useMutation({
@@ -112,7 +140,7 @@ export default function Dashboard() {
             <h1 className="text-xl font-bold text-gray-900">Allied Connect</h1>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{employee?.name}</span>
+            <span className="text-sm text-gray-600">{viewingEmployee ? selectedEmployee?.name : employee?.name}</span>
             {isManager() && (
               <a href="/manager" className="text-sm text-blue-600 hover:underline">Manager View</a>
             )}
@@ -121,6 +149,48 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {isManager() && (
+        <div className="max-w-7xl mx-auto px-4 mt-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-wrap gap-4 items-end">
+            <div className="flex-1 min-w-64">
+              <label className="block text-sm font-medium text-blue-900 mb-1">Employee View — Select Employee</label>
+              <select
+                value={selectedEmployeeId}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setSelectedPpId('')
+                  setMonthOffset(0)
+                  if (value) setSearchParams({ employee: value })
+                  else setSearchParams({})
+                }}
+                className="w-full px-4 py-2 border rounded-lg bg-white"
+              >
+                <option value="">Choose an employee...</option>
+                {managementEmployees?.employees?.map(item => (
+                  <option key={item.timestation_id} value={item.timestation_id}>{item.name} — {item.department}</option>
+                ))}
+              </select>
+            </div>
+            {viewingEmployee && (
+              <div className="text-sm text-blue-800">
+                Viewing the portal as <span className="font-semibold">{selectedEmployee?.name}</span>.
+                {employee?.role === 'manager' && ' Hourly rate and gross pay remain hidden.'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isManager() && !viewingEmployee && (
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="bg-white rounded-xl shadow-sm p-10 text-center text-gray-500">
+            Select an employee above to open their employee dashboard.
+          </div>
+        </div>
+      )}
+
+      {(!isManager() || viewingEmployee) && (
+      <>
       {/* Email prompt if missing */}
       {profile && !profile.email && (
         <div className="max-w-7xl mx-auto px-4 mt-4">
@@ -169,7 +239,7 @@ export default function Dashboard() {
 
         {/* Navigation */}
         <div className="flex gap-3 mb-6">
-          <a href="/time-off" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Request Time Off</a>
+          <a href={viewingEmployee ? `/time-off?employee=${selectedEmployeeId}` : '/time-off'} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Request Time Off</a>
           <a href="/documents" className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">Documents</a>
         </div>
 
@@ -457,6 +527,8 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )
