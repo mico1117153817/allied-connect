@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.models.database import get_db
 from app.models.document import Document
 from app.models.document_assignment import DocumentAssignment
 from app.models.document_recipient_template import DocumentRecipientTemplate
-from app.models.document_signature import DocumentSignature
+from app.models.document_signature import DocumentContent, DocumentSignature
 from app.models.employee import Employee
 from app.routers.auth import get_current_user, require_manager
 from app.services.email import send_document_notification, send_document_void_notification
@@ -123,6 +123,8 @@ async def upload_document(
     try:
         file_path.write_bytes(content)
         doc.file_path = str(file_path)
+        db.add(DocumentContent(document_id=doc.id, content=content, filename=safe_name,
+                               content_type="application/pdf"))
         for employee in recipients:
             db.add(DocumentAssignment(document_id=doc.id, employee_id=employee.timestation_id,
                                       assigned_by=user["timestation_id"]))
@@ -218,28 +220,35 @@ async def review_document(doc_id: int, user: dict = Depends(get_current_user), d
     return {"status": "reviewed", "document_id": doc_id}
 
 
+def _pdf_response(db: Session, doc: Document):
+    stored = db.query(DocumentContent).filter(DocumentContent.document_id == doc.id).first()
+    if stored:
+        return Response(
+            content=stored.content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="{stored.filename}"'},
+        )
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "PDF file is no longer available; re-upload the original document to restore it")
+    filename = file_path.name.split("_", 1)[-1] if "_" in file_path.name else file_path.name
+    return FileResponse(path=str(file_path), filename=filename, media_type="application/pdf",
+                        content_disposition_type="inline")
+
+
 @router.get("/{doc_id}/history-download")
 async def download_document_history(doc_id: int, user: dict = Depends(require_manager), db: Session = Depends(get_db)):
     """Managers retain read-only access to the PDF in document history, including voided records."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(404, "Document not found")
-    file_path = Path(doc.file_path)
-    if not file_path.exists():
-        raise HTTPException(404, "File not found on disk")
-    return FileResponse(path=str(file_path), filename=f"{doc.title}.pdf", media_type="application/pdf",
-                        content_disposition_type="inline")
+    return _pdf_response(db, doc)
 
 
 @router.get("/{doc_id}/download")
 async def download_document(doc_id: int, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     doc, _ = _authorized_document(db, doc_id, user)
-    file_path = Path(doc.file_path)
-    if not file_path.exists():
-        raise HTTPException(404, "File not found on disk")
-    filename = file_path.name.split("_", 1)[-1] if "_" in file_path.name else file_path.name
-    return FileResponse(path=str(file_path), filename=filename, media_type="application/pdf",
-                        content_disposition_type="inline")
+    return _pdf_response(db, doc)
 
 
 @router.post("/{doc_id}/sign")
@@ -252,10 +261,10 @@ async def sign_document(
     doc, assignment = _authorized_document(db, doc_id, user)
     if not doc.requires_signature:
         raise HTTPException(400, "This document does not require a signature")
-    if not assignment.viewed_at:
-        raise HTTPException(400, "You must review the document before signing")
     if not payload.acknowledged:
-        raise HTTPException(400, "You must acknowledge that you have read the document before signing")
+        raise HTTPException(400, "You must acknowledge receipt and confirm that you reviewed the document before signing")
+    if not assignment.viewed_at:
+        assignment.viewed_at = datetime.utcnow()
     existing = db.query(DocumentSignature).filter(DocumentSignature.document_id == doc_id,
                                                    DocumentSignature.employee_id == user["timestation_id"]).first()
     if existing:

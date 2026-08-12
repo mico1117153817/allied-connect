@@ -88,12 +88,30 @@ def test_manager_can_view_document_history_file(harness):
     assert viewed.content.startswith(b"%PDF")
 
 
+def test_uploaded_pdf_remains_viewable_when_disk_copy_is_missing(harness, tmp_path):
+    client, current = harness
+    with patch("app.routers.documents.send_document_notification", new=AsyncMock()):
+        doc_id = _upload(client).json()["id"]
+
+    for file_path in tmp_path.iterdir():
+        file_path.unlink()
+
+    manager_view = client.get(f"/api/documents/{doc_id}/history-download")
+    assert manager_view.status_code == 200
+    assert manager_view.content.startswith(b"%PDF")
+
+    current["user"] = _employee("E1")
+    employee_view = client.get(f"/api/documents/{doc_id}/download")
+    assert employee_view.status_code == 200
+    assert employee_view.content.startswith(b"%PDF")
+
+
+
 def test_required_document_needs_acknowledgment_before_signing(harness):
     client, current = harness
     with patch("app.routers.documents.send_document_notification", new=AsyncMock()):
         doc_id = _upload(client).json()["id"]
     current["user"] = _employee("E1")
-    assert client.post(f"/api/documents/{doc_id}/review").status_code == 200
     not_acknowledged = client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": False})
     assert not_acknowledged.status_code == 400
     assert "acknowledge" in not_acknowledged.json()["detail"].lower()
@@ -135,9 +153,9 @@ def test_required_document_blocks_until_reviewed_and_signed(harness):
     assert status["has_blocking_documents"] is True
     assert status["blocking_documents"][0]["viewed"] is False
 
-    not_reviewed = client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": True})
+    not_reviewed = client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": False})
     assert not_reviewed.status_code == 400
-    assert "review" in not_reviewed.json()["detail"].lower()
+    assert "acknowledge" in not_reviewed.json()["detail"].lower()
 
     reviewed = client.post(f"/api/documents/{doc_id}/review")
     assert reviewed.status_code == 200

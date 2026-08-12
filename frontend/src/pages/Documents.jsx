@@ -28,11 +28,10 @@ export default function Documents() {
   const openDocument = async (doc) => {
     setMessage(''); setLoadingDoc(true)
     try {
-      await api.post(`/api/documents/${doc.id}/review`)
       const response = await api.get(`/api/documents/${doc.id}/download`, { responseType: 'blob' })
       if (pdfUrl) URL.revokeObjectURL(pdfUrl)
       setPdfUrl(URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' })))
-      setActiveDoc({ ...doc, viewed: true })
+      setActiveDoc(doc)
       await refresh()
     } catch (err) { setMessage(apiError(err)) } finally { setLoadingDoc(false) }
   }
@@ -68,7 +67,7 @@ export default function Documents() {
 
       {activeDoc && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3"><div className="bg-white w-full max-w-6xl h-[92vh] rounded-xl shadow-2xl flex flex-col"><div className="p-4 border-b flex justify-between items-center"><div><h2 className="font-semibold">{activeDoc.title}</h2><p className="text-xs text-gray-500">Scroll through the PDF, then acknowledge it before signing.</p></div><button onClick={closeViewer} className="text-gray-600 text-sm">Close</button></div>
         <div className="flex-1 min-h-0 bg-gray-100">{pdfUrl && <iframe title={activeDoc.title} src={pdfUrl} className="w-full h-full" />}</div>
-        <div className="p-4 border-t bg-white"><p className="text-sm text-green-700 mb-2">{message}</p>{activeDoc.requires_signature && !activeDoc.signed ? <div className="flex flex-wrap items-center justify-between gap-3"><label className="flex gap-2 items-start text-sm"><input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} className="mt-1" /><span>I have read and acknowledge this document.</span></label><button onClick={signDocument} disabled={!acknowledged || loadingDoc} className="px-5 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-40">{loadingDoc ? 'Signing...' : 'Acknowledge & Sign'}</button></div> : <p className="text-sm text-gray-600">This signed document remains available here for future viewing.</p>}</div>
+        <div className="p-4 border-t bg-white"><p className="text-sm text-green-700 mb-2">{message}</p>{activeDoc.requires_signature && !activeDoc.signed ? <div className="flex flex-wrap items-center justify-between gap-3"><label className="flex gap-2 items-start text-sm"><input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} className="mt-1" /><span>I acknowledge receipt and confirm that I reviewed this document.</span></label><button onClick={signDocument} disabled={!acknowledged || loadingDoc} className="px-5 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-40">{loadingDoc ? 'Signing...' : 'Acknowledge & Sign'}</button></div> : <p className="text-sm text-gray-600">This signed document remains available here for future viewing.</p>}</div>
       </div></div>}
     </div>
   )
