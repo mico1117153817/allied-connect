@@ -6,11 +6,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models.employee import Employee
-from app.models.employee_profile import EmployeeProfile
-from app.models.document import Document
-from app.models.document_assignment import DocumentAssignment
-from app.models.document_recipient_template import DocumentRecipientTemplate
-from app.models.document_signature import DocumentContent, DocumentSignature
 from app.models.pay_adjustment import PayAdjustment
 from app.models.time_off import TimeOffRequest
 from app.models.hour_balance import HourBalance, HourTransaction
@@ -18,8 +13,6 @@ from app.services.hour_balance_service import (
     add_hours, get_balance, get_all_balances, get_transaction_history, deduct_hours
 )
 from app.models.scheduled_shift import ScheduledShift
-from app.models.pay_period import PayPeriod
-from app.models.setting import Setting
 from app.routers.auth import require_manager, require_super_admin
 from app.services.timestation import timestation
 
@@ -747,56 +740,6 @@ async def get_hour_balance(
         "name": emp.name,
         "balances": balances,
         "transactions": transactions,
-    }
-
-
-class ProductionResetInput(BaseModel):
-    confirmation: str
-
-
-RESET_MODELS = [
-    DocumentSignature,
-    DocumentAssignment,
-    DocumentContent,
-    DocumentRecipientTemplate,
-    Document,
-    HourTransaction,
-    HourBalance,
-    TimeOffRequest,
-    PayAdjustment,
-    EmployeeProfile,
-]
-PRESERVED_MODELS = [Employee, ScheduledShift, PayPeriod, Setting]
-
-
-def _reset_counts(db: Session) -> dict:
-    return {model.__tablename__: db.query(model).count() for model in RESET_MODELS}
-
-
-@router.post("/maintenance/reset-launch-data")
-async def reset_launch_data(
-    req: ProductionResetInput,
-    user: dict = Depends(require_super_admin),
-    db: Session = Depends(get_db),
-):
-    """One-time launch reset. Preserves accounts, roles, schedules, pay periods, and settings."""
-    if req.confirmation != "RESET ALL TEST DATA FOR LAUNCH":
-        raise HTTPException(400, "Confirmation phrase does not match")
-    before = _reset_counts(db)
-    preserved_before = {model.__tablename__: db.query(model).count() for model in PRESERVED_MODELS}
-    try:
-        for model in RESET_MODELS:
-            db.query(model).delete(synchronize_session=False)
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    return {
-        "status": "reset_complete",
-        "before": before,
-        "after": _reset_counts(db),
-        "preserved_before": preserved_before,
-        "preserved_after": {model.__tablename__: db.query(model).count() for model in PRESERVED_MODELS},
     }
 
 
