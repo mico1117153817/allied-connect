@@ -108,6 +108,7 @@ export default function Manager() {
           <div className="flex items-center gap-4">
             <a href="/dashboard" className="text-sm text-blue-600 hover:underline">Employee View</a>
             <a href="/manage-documents" className="text-sm text-blue-600 hover:underline">Documents</a>
+            <a href="/directory" className="text-sm text-blue-600 hover:underline">Employee Directory</a>
             <a href="/settings" className="text-sm text-blue-600 hover:underline">Settings</a>
             <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
           </div>
