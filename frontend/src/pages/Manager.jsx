@@ -100,18 +100,18 @@ export default function Manager() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <img src="/allied-logo.jpg" alt="Allied" className="h-10 w-auto rounded" />
-            <h1 className="text-xl font-bold">Allied Connect — Manager</h1>
+        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+          <div className="flex items-center gap-3 min-w-0">
+            <img src="/allied-logo.jpg" alt="Allied" className="h-10 w-auto max-w-32 rounded shrink-0" />
+            <h1 className="text-lg sm:text-xl font-bold leading-tight">Allied Connect — Manager</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <nav className="grid grid-cols-2 gap-x-4 gap-y-3 w-full sm:w-auto sm:flex sm:flex-wrap sm:items-center sm:justify-end" aria-label="Management navigation">
             <a href="/dashboard" className="text-sm text-blue-600 hover:underline">Employee View</a>
             <a href="/manage-documents" className="text-sm text-blue-600 hover:underline">Documents</a>
             <a href="/directory" className="text-sm text-blue-600 hover:underline">Employee Directory</a>
             <a href="/settings" className="text-sm text-blue-600 hover:underline">Settings</a>
-            <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
-          </div>
+            <button onClick={logout} className="text-sm text-red-600 hover:underline text-left sm:text-center">Logout</button>
+          </nav>
         </div>
       </header>
 
