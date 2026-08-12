@@ -23,6 +23,10 @@ STORAGE_DIR = Path(settings.STORAGE_DIR)
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
+class AcknowledgmentInput(BaseModel):
+    acknowledged: bool = False
+
+
 class TemplateInput(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     employee_ids: list[str] = Field(..., min_length=1)
@@ -104,7 +108,12 @@ async def upload_document(
         raise HTTPException(400, f"Unknown or inactive employees: {', '.join(missing)}")
 
     filename = file.filename or "document"
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "unknown"
+    if not filename.lower().endswith(".pdf") or (file.content_type and file.content_type.lower() != "application/pdf"):
+        raise HTTPException(400, "Documents must be uploaded as PDF files")
+    content = await file.read()
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(400, "The uploaded file is not a valid PDF")
+    ext = "pdf"
     doc = Document(title=title, file_path="", file_type=ext, version=version,
                    requires_signature=requires_signature, created_by=user["timestation_id"])
     db.add(doc)
@@ -112,7 +121,7 @@ async def upload_document(
     safe_name = filename.replace("/", "_").replace("\\", "_")
     file_path = STORAGE_DIR / f"{doc.id}_{safe_name}"
     try:
-        file_path.write_bytes(await file.read())
+        file_path.write_bytes(content)
         doc.file_path = str(file_path)
         for employee in recipients:
             db.add(DocumentAssignment(document_id=doc.id, employee_id=employee.timestation_id,
@@ -209,6 +218,19 @@ async def review_document(doc_id: int, user: dict = Depends(get_current_user), d
     return {"status": "reviewed", "document_id": doc_id}
 
 
+@router.get("/{doc_id}/history-download")
+async def download_document_history(doc_id: int, user: dict = Depends(require_manager), db: Session = Depends(get_db)):
+    """Managers retain read-only access to the PDF in document history, including voided records."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+    return FileResponse(path=str(file_path), filename=f"{doc.title}.pdf", media_type="application/pdf",
+                        content_disposition_type="inline")
+
+
 @router.get("/{doc_id}/download")
 async def download_document(doc_id: int, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     doc, _ = _authorized_document(db, doc_id, user)
@@ -216,16 +238,24 @@ async def download_document(doc_id: int, user: dict = Depends(get_current_user),
     if not file_path.exists():
         raise HTTPException(404, "File not found on disk")
     filename = file_path.name.split("_", 1)[-1] if "_" in file_path.name else file_path.name
-    return FileResponse(path=str(file_path), filename=filename, media_type="application/octet-stream")
+    return FileResponse(path=str(file_path), filename=filename, media_type="application/pdf",
+                        content_disposition_type="inline")
 
 
 @router.post("/{doc_id}/sign")
-async def sign_document(doc_id: int, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def sign_document(
+    doc_id: int,
+    payload: AcknowledgmentInput,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     doc, assignment = _authorized_document(db, doc_id, user)
     if not doc.requires_signature:
         raise HTTPException(400, "This document does not require a signature")
     if not assignment.viewed_at:
         raise HTTPException(400, "You must review the document before signing")
+    if not payload.acknowledged:
+        raise HTTPException(400, "You must acknowledge that you have read the document before signing")
     existing = db.query(DocumentSignature).filter(DocumentSignature.document_id == doc_id,
                                                    DocumentSignature.employee_id == user["timestation_id"]).first()
     if existing:

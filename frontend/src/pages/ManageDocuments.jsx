@@ -17,6 +17,8 @@ export default function ManageDocuments() {
   const [templateName, setTemplateName] = useState('')
   const [uploadMsg, setUploadMsg] = useState('')
   const [sigViewDoc, setSigViewDoc] = useState(null)
+  const [historyDoc, setHistoryDoc] = useState(null)
+  const [historyPdfUrl, setHistoryPdfUrl] = useState(null)
   const [busy, setBusy] = useState(false)
 
   const { data, isLoading } = useQuery({ queryKey: ['all-docs'], queryFn: () => api.get('/api/documents/all/list').then(r => r.data) })
@@ -59,6 +61,21 @@ export default function ManageDocuments() {
     } catch (err) { setUploadMsg(`Upload failed: ${errorText(err)}`) } finally { setBusy(false) }
   }
 
+  const openHistoryPdf = async (doc) => {
+    setBusy(true); setUploadMsg('')
+    try {
+      const response = await api.get(`/api/documents/${doc.id}/history-download`, { responseType: 'blob' })
+      if (historyPdfUrl) URL.revokeObjectURL(historyPdfUrl)
+      setHistoryPdfUrl(URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' })))
+      setHistoryDoc(doc)
+    } catch (err) { setUploadMsg(`Unable to view PDF: ${errorText(err)}`) } finally { setBusy(false) }
+  }
+
+  const closeHistoryPdf = () => {
+    if (historyPdfUrl) URL.revokeObjectURL(historyPdfUrl)
+    setHistoryPdfUrl(null); setHistoryDoc(null)
+  }
+
   const voidDocument = async (doc) => {
     if (!window.confirm(`Void “${doc.title}”? Recipients will lose access and receive an email.`)) return
     try {
@@ -87,7 +104,7 @@ export default function ManageDocuments() {
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium mb-1">Requires Signature</label><select value={String(uploadForm.requires_signature)} onChange={e => setUploadForm({...uploadForm,requires_signature:e.target.value==='true'})} className="w-full px-3 py-2 border rounded-lg"><option value="true">Yes — block portal until signed</option><option value="false">No — notification only</option></select></div>
-              <div><label className="block text-sm font-medium mb-1">File</label><input type="file" required accept=".pdf,.docx,.doc,.txt" onChange={e => setUploadForm({...uploadForm,file:e.target.files[0]})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="block text-sm font-medium mb-1">PDF File</label><input type="file" required accept="application/pdf,.pdf" onChange={e => setUploadForm({...uploadForm,file:e.target.files[0]})} className="w-full px-3 py-2 border rounded-lg" /></div>
             </div>
 
             <section className="border rounded-xl p-4">
@@ -104,11 +121,13 @@ export default function ManageDocuments() {
 
         <div className="bg-white rounded-xl shadow-sm p-6"><h2 className="text-lg font-semibold mb-4">Document History</h2>
           {isLoading ? <p className="text-gray-500">Loading...</p> : <div className="space-y-3">{data?.documents?.map(doc => (
-            <div key={doc.id} className="border rounded-lg p-4"><div className="flex flex-wrap justify-between items-start gap-3"><div><div className="flex items-center gap-2"><span className="font-medium">{doc.title}</span><span className="text-xs text-gray-400">v{doc.version}</span>{doc.is_voided && <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">VOIDED</span>}</div><p className="text-xs text-gray-500 mt-1">{doc.file_type?.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString()} · {doc.recipient_count} recipient(s)</p></div><div className="flex gap-2"><button onClick={()=>setSigViewDoc(sigViewDoc===doc.id?null:doc.id)} className="px-3 py-1 border rounded text-sm">{sigViewDoc===doc.id?'Hide':'Signatures'}</button>{!doc.is_voided&&<button onClick={()=>voidDocument(doc)} className="px-3 py-1 bg-red-600 text-white rounded text-sm">Void</button>}</div></div>
+            <div key={doc.id} className="border rounded-lg p-4"><div className="flex flex-wrap justify-between items-start gap-3"><div><div className="flex items-center gap-2"><span className="font-medium">{doc.title}</span><span className="text-xs text-gray-400">v{doc.version}</span>{doc.is_voided && <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">VOIDED</span>}</div><p className="text-xs text-gray-500 mt-1">{doc.file_type?.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString()} · {doc.recipient_count} recipient(s)</p></div><div className="flex gap-2"><button type="button" onClick={()=>openHistoryPdf(doc)} disabled={busy} className="px-3 py-1 border rounded text-sm disabled:opacity-50">View PDF</button><button onClick={()=>setSigViewDoc(sigViewDoc===doc.id?null:doc.id)} className="px-3 py-1 border rounded text-sm">{sigViewDoc===doc.id?'Hide':'Signatures'}</button>{!doc.is_voided&&<button onClick={()=>voidDocument(doc)} className="px-3 py-1 bg-red-600 text-white rounded text-sm">Void</button>}</div></div>
               {sigViewDoc===doc.id&&<div className="mt-4 border-t pt-3">{sigLoading?<p>Loading...</p>:<div className="grid grid-cols-2 gap-4"><div><p className="text-sm font-medium text-green-700">Signed ({sigData?.total_signed||0})</p>{sigData?.signed?.map(s=><p key={s.employee_id} className="text-sm">{s.employee_name}</p>)}</div><div><p className="text-sm font-medium text-red-700">Not Signed ({sigData?.total_not_signed||0})</p>{sigData?.not_signed?.map(s=><p key={s.employee_id} className="text-sm">{s.employee_name}</p>)}</div></div>}</div>}
             </div>))}{data?.documents?.length===0&&<p className="text-gray-400 text-center py-4">No documents sent.</p>}</div>}
         </div>
       </div>
+
+      {historyDoc && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3"><div className="bg-white w-full max-w-6xl h-[92vh] rounded-xl shadow-2xl flex flex-col"><div className="p-4 border-b flex justify-between items-center"><div><h2 className="font-semibold">{historyDoc.title}</h2><p className="text-xs text-gray-500">Document history PDF · v{historyDoc.version}</p></div><button onClick={closeHistoryPdf} className="text-sm text-gray-600">Close</button></div><div className="flex-1 min-h-0 bg-gray-100">{historyPdfUrl && <iframe title={historyDoc.title} src={historyPdfUrl} className="w-full h-full" />}</div></div></div>}
     </div>
   )
 }

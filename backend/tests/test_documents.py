@@ -60,8 +60,45 @@ def _upload(client, recipients=("E1",), signature=True):
             "requires_signature": str(signature).lower(),
             "employee_ids": "[" + ",".join(f'\"{item}\"' for item in recipients) + "]",
         },
-        files={"file": ("handbook.txt", b"company rules", "text/plain")},
+        files={"file": ("handbook.pdf", b"%PDF-1.4\ncompany rules", "application/pdf")},
     )
+
+
+def test_upload_rejects_non_pdf(harness):
+    client, _ = harness
+    response = client.post(
+        "/api/documents",
+        data={"title": "Wrong type", "employee_ids": '["E1"]'},
+        files={"file": ("handbook.docx", b"not a pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+    )
+    assert response.status_code == 400
+    assert "pdf" in response.json()["detail"].lower()
+
+
+def test_manager_can_view_document_history_file(harness):
+    client, _ = harness
+    response = _upload(client)
+    assert response.status_code == 201
+    doc_id = response.json()["id"]
+    history = client.get("/api/documents/all/list")
+    assert history.status_code == 200
+    assert history.json()["documents"][0]["file_type"] == "pdf"
+    viewed = client.get(f"/api/documents/{doc_id}/history-download")
+    assert viewed.status_code == 200
+    assert viewed.content.startswith(b"%PDF")
+
+
+def test_required_document_needs_acknowledgment_before_signing(harness):
+    client, current = harness
+    with patch("app.routers.documents.send_document_notification", new=AsyncMock()):
+        doc_id = _upload(client).json()["id"]
+    current["user"] = _employee("E1")
+    assert client.post(f"/api/documents/{doc_id}/review").status_code == 200
+    not_acknowledged = client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": False})
+    assert not_acknowledged.status_code == 400
+    assert "acknowledge" in not_acknowledged.json()["detail"].lower()
+    signed = client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": True})
+    assert signed.status_code == 200
 
 
 def test_upload_assigns_only_selected_employees_and_sends_email(harness):
@@ -98,13 +135,13 @@ def test_required_document_blocks_until_reviewed_and_signed(harness):
     assert status["has_blocking_documents"] is True
     assert status["blocking_documents"][0]["viewed"] is False
 
-    not_reviewed = client.post(f"/api/documents/{doc_id}/sign")
+    not_reviewed = client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": True})
     assert not_reviewed.status_code == 400
     assert "review" in not_reviewed.json()["detail"].lower()
 
     reviewed = client.post(f"/api/documents/{doc_id}/review")
     assert reviewed.status_code == 200
-    signed = client.post(f"/api/documents/{doc_id}/sign")
+    signed = client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": True})
     assert signed.status_code == 200
     assert client.get("/api/documents/requirements").json()["has_blocking_documents"] is False
 
@@ -123,4 +160,4 @@ def test_void_removes_access_and_sends_void_email(harness):
     current["user"] = _employee("E1")
     assert client.get("/api/documents").json()["documents"] == []
     assert client.get(f"/api/documents/{doc_id}/download").status_code == 404
-    assert client.post(f"/api/documents/{doc_id}/sign").status_code == 404
+    assert client.post(f"/api/documents/{doc_id}/sign", json={"acknowledged": True}).status_code == 404
