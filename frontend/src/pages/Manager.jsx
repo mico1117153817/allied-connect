@@ -12,6 +12,7 @@ export default function Manager() {
   const [selectedEmpPeriodId, setSelectedEmpPeriodId] = useState('')
   const [empMonthOffset, setEmpMonthOffset] = useState(0)
   const [selectedDay, setSelectedDay] = useState(null)
+  const [selectedRequest, setSelectedRequest] = useState(null)
 
   // Today's status
   const { data: todayData, isLoading: todayLoading } = useQuery({
@@ -74,7 +75,10 @@ export default function Manager() {
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, status }) => api.put(`/api/time-off/${id}/review`, { status }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['all-time-off'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['all-time-off'] })
+      setSelectedRequest(null)
+    },
   })
 
   const voidMutation = useMutation({
@@ -177,43 +181,20 @@ export default function Manager() {
             {timeOffLoading ? <p className="text-gray-500">Loading...</p> : (
               <div className="space-y-3">
                 {timeOffData?.requests?.map(r => (
-                  <div key={r.id} className="flex justify-between items-center p-4 border rounded-lg">
+                  <button key={r.id} type="button" onClick={() => setSelectedRequest(r)} className="w-full text-left flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 border rounded-lg hover:border-blue-400 hover:bg-blue-50 transition">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{r.employee_name}</span>
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor(r.status)}`}>{r.status}</span>
-                        <span className="text-xs text-gray-500 capitalize">{r.type}</span>
+                        <span className="text-sm font-medium text-blue-700 capitalize">{(r.request_type || r.type || 'time off').replaceAll('_', ' ')}</span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">{r.start_date} → {r.end_date}</p>
-                      {r.reason && <p className="text-xs text-gray-500 mt-1">"{r.reason}"</p>}
+                      <p className="text-sm text-gray-600 mt-1">
+                        {r.request_type === 'back_hours' ? `${r.hours_requested || 0} back hours requested` : `${r.start_date} → ${r.end_date}`}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-2">View request details</p>
                     </div>
-                    {r.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => reviewMutation.mutate({ id: r.id, status: 'approved' })}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => reviewMutation.mutate({ id: r.id, status: 'denied' })}
-                          className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                        >
-                          Deny
-                        </button>
-                      </div>
-                    )}
-                    {r.status === 'approved' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => voidMutation.mutate(r.id)}
-                          className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
-                        >
-                          Void
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                    <span className="text-xl text-gray-400" aria-hidden="true">›</span>
+                  </button>
                 ))}
                 {timeOffData?.requests?.length === 0 && <p className="text-gray-400 text-center py-4">No time-off requests.</p>}
               </div>
@@ -546,6 +527,49 @@ export default function Manager() {
           </div>
         )}
       </div>
+
+      {/* Time-Off Request Detail Modal */}
+      {selectedRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedRequest(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start gap-4 mb-5">
+              <div>
+                <h3 className="text-xl font-bold">{selectedRequest.employee_name}</h3>
+                <p className="text-sm text-gray-500">Time-Off Request #{selectedRequest.id}</p>
+              </div>
+              <button onClick={() => setSelectedRequest(null)} className="text-gray-500 hover:text-gray-700 text-xl" aria-label="Close request details">✕</button>
+            </div>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div><dt className="text-gray-500">Request Type</dt><dd className="font-semibold capitalize">{(selectedRequest.request_type || selectedRequest.type || 'time off').replaceAll('_', ' ')}</dd></div>
+              <div><dt className="text-gray-500">Status</dt><dd><span className={`inline-block text-xs px-2 py-1 rounded-full font-medium ${statusColor(selectedRequest.status)}`}>{selectedRequest.status}</span></dd></div>
+              {selectedRequest.request_type === 'back_hours' ? (
+                <>
+                  <div><dt className="text-gray-500">Hours Requested</dt><dd className="font-semibold">{selectedRequest.hours_requested || 0} hours</dd></div>
+                  <div><dt className="text-gray-500">Hours From</dt><dd className="font-semibold capitalize">{(selectedRequest.hour_type || 'back_hours').replaceAll('_', ' ')}</dd></div>
+                  <div><dt className="text-gray-500">Pay Period</dt><dd className="font-semibold">ID {selectedRequest.pay_period_id || 'Not selected'}</dd></div>
+                </>
+              ) : (
+                <>
+                  <div><dt className="text-gray-500">Start Date</dt><dd className="font-semibold">{selectedRequest.start_date}</dd></div>
+                  <div><dt className="text-gray-500">End Date</dt><dd className="font-semibold">{selectedRequest.end_date}</dd></div>
+                  {selectedRequest.hours_requested && <div><dt className="text-gray-500">Paid Hours</dt><dd className="font-semibold">{selectedRequest.hours_requested} hours from {(selectedRequest.hour_type || '').replaceAll('_', ' ')}</dd></div>}
+                </>
+              )}
+              <div className="sm:col-span-2"><dt className="text-gray-500">Reason</dt><dd className="font-semibold">{selectedRequest.reason?.trim() || 'No reason provided'}</dd></div>
+              <div className="sm:col-span-2"><dt className="text-gray-500">Submitted</dt><dd className="font-semibold">{selectedRequest.created_at ? new Date(selectedRequest.created_at).toLocaleString() : 'Unknown'}</dd></div>
+            </dl>
+            {selectedRequest.status === 'pending' && (
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-6 pt-5 border-t">
+                <button onClick={() => reviewMutation.mutate({ id: selectedRequest.id, status: 'denied' })} disabled={reviewMutation.isPending} className="px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50">Deny Request</button>
+                <button onClick={() => reviewMutation.mutate({ id: selectedRequest.id, status: 'approved' })} disabled={reviewMutation.isPending} className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50">Approve Request</button>
+              </div>
+            )}
+            {selectedRequest.status === 'approved' && (
+              <div className="flex justify-end mt-6 pt-5 border-t"><button onClick={() => { voidMutation.mutate(selectedRequest.id); setSelectedRequest(null) }} className="px-4 py-2 bg-orange-600 text-white rounded-lg">Void Request</button></div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Day Detail Modal */}
       {selectedDay && (
