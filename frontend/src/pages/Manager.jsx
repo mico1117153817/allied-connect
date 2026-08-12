@@ -9,6 +9,7 @@ export default function Manager() {
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
   const [adjForm, setAdjForm] = useState({ employee_id: '', pay_date: '', type: 'back_hours', hours: 0, description: '' })
   const [selectedEmpId, setSelectedEmpId] = useState('')
+  const [selectedEmpPeriodId, setSelectedEmpPeriodId] = useState('')
   const [empMonthOffset, setEmpMonthOffset] = useState(0)
   const [selectedDay, setSelectedDay] = useState(null)
 
@@ -52,8 +53,24 @@ export default function Manager() {
   const { data: empCalData, isLoading: empCalLoading } = useQuery({
     queryKey: ['emp-calendar', selectedEmpId, empStartStr, empEndStr],
     queryFn: () => api.get(`/api/manager/employee/${selectedEmpId}/calendar`, { params: { start: empStartStr, end: empEndStr } }).then(r => r.data),
-    enabled: !!selectedEmpId,
+    enabled: !!selectedEmpId && !selectedEmpPeriodId,
   })
+
+  const { data: empPeriods } = useQuery({
+    queryKey: ['manager-pay-periods'],
+    queryFn: () => api.get('/api/manager/pay-periods').then(r => r.data),
+  })
+
+  const { data: empPeriodData, isLoading: empPeriodLoading } = useQuery({
+    queryKey: ['emp-pay-period', selectedEmpId, selectedEmpPeriodId],
+    queryFn: () => api.get(`/api/manager/employee/${selectedEmpId}/pay-period/${selectedEmpPeriodId}`).then(r => r.data),
+    enabled: !!selectedEmpId && !!selectedEmpPeriodId,
+  })
+
+  const visibleEmpCalendar = selectedEmpPeriodId
+    ? { days: empPeriodData?.calendar || [] }
+    : empCalData
+  const visibleEmpLoading = selectedEmpPeriodId ? empPeriodLoading : empCalLoading
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, status }) => api.put(`/api/time-off/${id}/review`, { status }),
@@ -298,7 +315,10 @@ export default function Manager() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Select Employee</label>
                   <select
                     value={selectedEmpId}
-                    onChange={(e) => setSelectedEmpId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedEmpId(e.target.value)
+                      setSelectedEmpPeriodId('')
+                    }}
                     className="px-4 py-2 border rounded-lg min-w-64"
                   >
                     <option value="">Choose an employee...</option>
@@ -310,6 +330,34 @@ export default function Manager() {
                   </select>
                 </div>
                 {selectedEmpId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Pay Period</label>
+                    <select
+                      value={selectedEmpPeriodId}
+                      onChange={(e) => {
+                        const periodId = e.target.value
+                        setSelectedEmpPeriodId(periodId)
+                        if (periodId) {
+                          const period = empPeriods?.pay_periods?.find(p => p.id == periodId)
+                          if (period) {
+                            const periodStart = new Date(`${period.start_date}T00:00:00`)
+                            const offset = (periodStart.getFullYear() - empNow.getFullYear()) * 12 + periodStart.getMonth() - empNow.getMonth()
+                            setEmpMonthOffset(offset)
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 border rounded-lg min-w-72"
+                    >
+                      <option value="">Monthly calendar view...</option>
+                      {empPeriods?.pay_periods?.map(period => (
+                        <option key={period.id} value={period.id}>
+                          {period.label} — {period.start_date} → {period.end_date}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {selectedEmpId && !selectedEmpPeriodId && (
                   <div className="flex gap-2 items-end">
                     <button onClick={() => setEmpMonthOffset(m => m - 1)} className="px-3 py-2 border rounded hover:bg-gray-50 text-sm">← Prev</button>
                     <span className="px-3 py-2 text-sm font-medium">{empMonthName}</span>
@@ -321,14 +369,59 @@ export default function Manager() {
 
               {!selectedEmpId ? (
                 <p className="text-gray-400 text-center py-8">Select an employee to view their calendar.</p>
-              ) : empCalLoading ? (
-                <p className="text-gray-500 text-center py-8">Loading calendar...</p>
+              ) : visibleEmpLoading ? (
+                <p className="text-gray-500 text-center py-8">Loading employee data...</p>
               ) : (
                 <>
+                  {/* Pay-period summary mirrors the employee view. */}
+                  {selectedEmpPeriodId && empPeriodData && (
+                    <div className="mb-6 space-y-4">
+                      <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-3 text-sm text-blue-800">
+                        <span className="font-semibold">{empPeriodData.pay_period.label}</span>
+                        {' '}· Pay: {empPeriodData.pay_period.pay_date} · {empPeriodData.pay_period.start_date} → {empPeriodData.pay_period.end_date}
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                        <div className="bg-blue-50 p-3 rounded-lg"><p className="text-xs text-gray-500">Total Hours</p><p className="text-xl font-bold text-blue-600">{empPeriodData.total_hours}</p></div>
+                        <div className="bg-green-50 p-3 rounded-lg"><p className="text-xs text-gray-500">Days Worked</p><p className="text-xl font-bold text-green-600">{empPeriodData.days_worked}</p></div>
+                        <div className="bg-red-50 p-3 rounded-lg"><p className="text-xs text-gray-500">Late</p><p className="text-xl font-bold text-red-600">{empPeriodData.late_arrivals}</p></div>
+                        <div className="bg-yellow-50 p-3 rounded-lg"><p className="text-xs text-gray-500">Left Early</p><p className="text-xl font-bold text-yellow-600">{empPeriodData.left_early}</p></div>
+                        <div className="bg-purple-50 p-3 rounded-lg"><p className="text-xs text-gray-500">Back Used</p><p className="text-xl font-bold text-purple-600">{empPeriodData.back_hours_used}h</p></div>
+                        <div className="bg-indigo-50 p-3 rounded-lg"><p className="text-xs text-gray-500">Vacation Used</p><p className="text-xl font-bold text-indigo-600">{empPeriodData.vacation_hours_used}h</p></div>
+                        <div className="bg-teal-50 p-3 rounded-lg"><p className="text-xs text-gray-500">Sick Used</p><p className="text-xl font-bold text-teal-600">{empPeriodData.sick_hours_used}h</p></div>
+                      </div>
+                      {empPeriodData.can_view_pay && empPeriodData.gross_pay !== null && empPeriodData.gross_pay !== undefined && (
+                        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-lg flex flex-wrap justify-between gap-4 items-center">
+                          <div>
+                            <p className="text-xs text-gray-500">Gross Pay · ${empPeriodData.hourly_rate}/hr</p>
+                            <p className="text-sm text-gray-600">Worked {empPeriodData.total_hours}h + balance hours used {(empPeriodData.back_hours_used + empPeriodData.vacation_hours_used + empPeriodData.sick_hours_used).toFixed(2)}h</p>
+                          </div>
+                          <p className="text-2xl font-bold text-emerald-700">${empPeriodData.gross_pay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </div>
+                      )}
+                      {!empPeriodData.can_view_pay && (
+                        <p className="text-xs text-gray-500 bg-gray-50 border rounded-lg p-3">Hourly rate and gross pay are restricted to super admins.</p>
+                      )}
+                      {empPeriodData.hours_used?.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-2">Hours Used This Period</h3>
+                          <div className="space-y-1">
+                            {empPeriodData.hours_used.map((entry, index) => (
+                              <div key={index} className="p-2 bg-gray-50 rounded text-xs">
+                                <span className="font-medium text-red-700">{entry.amount}h {entry.type.replace('_', ' ')}</span>
+                                <span className="ml-2 text-gray-500">by {entry.input_by_name || 'system'} · {entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</span>
+                                {entry.reason && <span className="ml-2 text-gray-400">— {entry.reason}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Stats */}
                   <div className="grid grid-cols-4 gap-4 mb-6">
                     {(() => {
-                      const days = empCalData?.days || []
+                      const days = visibleEmpCalendar?.days || []
                       const workedDays = days.filter(d => d.worked)
                       const lateDays = days.filter(d => d.is_late)
                       const earlyDays = days.filter(d => d.is_early_leave)
@@ -358,7 +451,7 @@ export default function Manager() {
 
                   {/* Calendar grid */}
                   {(() => {
-                    const days = empCalData?.days || []
+                    const days = visibleEmpCalendar?.days || []
                     const firstDow = empStart.getDay()
                     const daysInMonth = empEnd.getDate()
                     const cells = []
@@ -421,7 +514,7 @@ export default function Manager() {
 
                   {/* Recent shifts detail */}
                   {(() => {
-                    const workedDays = (empCalData?.days || []).filter(d => d.worked)
+                    const workedDays = (visibleEmpCalendar?.days || []).filter(d => d.worked)
                     if (workedDays.length === 0) return null
                     return (
                       <div className="mt-6">

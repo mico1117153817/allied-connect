@@ -449,6 +449,34 @@ async def get_employee_calendar(
     }
 
 
+@router.get("/employee/{employee_id}/pay-period/{period_id}")
+async def get_employee_pay_period(
+    employee_id: str,
+    period_id: int,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    """View an employee's pay-period data with pay fields restricted to super admins."""
+    employee = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not employee:
+        raise HTTPException(404, "Employee not found")
+
+    # Reuse the employee endpoint's calculations so both views stay identical.
+    from app.routers.employee import get_pay_period_data
+    data = await get_pay_period_data(
+        period_id=period_id,
+        user={"timestation_id": employee_id},
+        db=db,
+    )
+    data["employee"] = {"timestation_id": employee_id, "name": employee.name}
+    data["can_view_pay"] = user.get("role") == "super_admin"
+
+    if not data["can_view_pay"]:
+        data.pop("hourly_rate", None)
+        data.pop("gross_pay", None)
+    return data
+
+
 # ── Pay Period Management ──────────────────────────────────────
 
 from app.models.pay_period import PayPeriod as PayPeriodModel
