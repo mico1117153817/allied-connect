@@ -94,6 +94,9 @@ export default function Manager() {
     },
   })
 
+  const pendingRequestCount = timeOffData?.requests?.filter(request => request.status === 'pending').length || 0
+  const payPeriodFor = (request) => empPeriods?.pay_periods?.find(period => period.id === request?.pay_period_id)
+
   const statusColor = (status) => ({
     pending: 'bg-yellow-100 text-yellow-800',
     approved: 'bg-green-100 text-green-800',
@@ -130,7 +133,14 @@ export default function Manager() {
                 tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t === 'today' ? 'Who\'s At Work' : t === 'timeoff' ? 'Time Off Requests' : t === 'pay' ? 'Pay Adjustments' : 'Employee Calendar'}
+              <span className="relative inline-flex items-center">
+                {t === 'today' ? 'Who\'s At Work' : t === 'timeoff' ? 'Time Off Requests' : t === 'pay' ? 'Pay Adjustments' : 'Employee Calendar'}
+                {t === 'timeoff' && pendingRequestCount > 0 && (
+                  <span className="absolute -top-4 -right-6 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-xs leading-5 text-center font-bold" aria-label={`${pendingRequestCount} pending time-off requests`}>
+                    {pendingRequestCount}
+                  </span>
+                )}
+              </span>
             </button>
           ))}
         </div>
@@ -546,7 +556,7 @@ export default function Manager() {
                 <>
                   <div><dt className="text-gray-500">Hours Requested</dt><dd className="font-semibold">{selectedRequest.hours_requested || 0} hours</dd></div>
                   <div><dt className="text-gray-500">Hours From</dt><dd className="font-semibold capitalize">{(selectedRequest.hour_type || 'back_hours').replaceAll('_', ' ')}</dd></div>
-                  <div><dt className="text-gray-500">Pay Period</dt><dd className="font-semibold">ID {selectedRequest.pay_period_id || 'Not selected'}</dd></div>
+                  <div><dt className="text-gray-500">Pay Period</dt><dd className="font-semibold">{payPeriodFor(selectedRequest)?.label || `Pay Period ID ${selectedRequest.pay_period_id || 'Not selected'}`}</dd>{payPeriodFor(selectedRequest) && <p className="text-xs text-gray-500 mt-1">{payPeriodFor(selectedRequest).start_date} → {payPeriodFor(selectedRequest).end_date}</p>}</div>
                 </>
               ) : (
                 <>
