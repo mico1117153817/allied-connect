@@ -65,6 +65,20 @@ def _user_manager():
     return {"timestation_id": "MGR001", "name": "Bob", "role": "manager", "email": "bob@example.com"}
 
 
+def _user_super_admin():
+    return {"timestation_id": "ADMIN001", "name": "Marc", "role": "super_admin", "email": "marc@example.com"}
+
+
+def _seed_back_hours_request(session_local):
+    with session_local() as db:
+        db.add(TimeOffRequest(
+            employee_id="EMP001", request_type="back_hours", start_date=date(2026, 8, 12),
+            end_date=date(2026, 8, 12), status="pending", hour_type="back_hours",
+            hours_requested=4, pay_period_id=1,
+        ))
+        db.commit()
+
+
 @pytest.fixture
 def client():
     """TestClient wired up as an employee by default."""
@@ -174,6 +188,40 @@ def test_list_all_requests_with_status_filter(client):
     resp = client.get("/api/time-off/all?status_filter=approved")
     assert resp.status_code == 200
     assert len(resp.json()) == 0
+
+
+def test_manager_cannot_see_or_review_back_hours_requests():
+    app, session_local = _make_app()
+    _seed_employees(session_local)
+    _seed_back_hours_request(session_local)
+    app.dependency_overrides[get_current_user] = lambda: _user_employee()
+    app.dependency_overrides[require_manager] = lambda: _user_manager()
+    client = TestClient(app)
+
+    assert client.get("/api/time-off/all").json() == []
+    with session_local() as db:
+        request_id = db.query(TimeOffRequest).filter(TimeOffRequest.request_type == "back_hours").first().id
+    review = client.put(f"/api/time-off/{request_id}/review", json={"status": "approved"})
+    assert review.status_code == 403
+    assert "super admin" in review.json()["detail"].lower()
+
+
+def test_super_admin_can_see_and_review_back_hours_requests():
+    app, session_local = _make_app()
+    _seed_employees(session_local)
+    _seed_back_hours_request(session_local)
+    app.dependency_overrides[get_current_user] = lambda: _user_employee()
+    app.dependency_overrides[require_manager] = lambda: _user_super_admin()
+    client = TestClient(app)
+
+    listed = client.get("/api/time-off/all")
+    assert listed.status_code == 200
+    assert [request["request_type"] for request in listed.json()] == ["back_hours"]
+    request_id = listed.json()[0]["id"]
+    with patch("app.routers.time_off.send_time_off_notification"):
+        review = client.put(f"/api/time-off/{request_id}/review", json={"status": "approved"})
+    assert review.status_code == 200
+    assert review.json()["status"] == "approved"
 
 
 def test_manager_review_approve(client):

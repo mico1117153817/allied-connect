@@ -218,6 +218,8 @@ def list_all_requests(
     stmt = select(TimeOffRequest, Employee).join(
         Employee, Employee.timestation_id == TimeOffRequest.employee_id, isouter=True
     )
+    if user.get("role") != "super_admin":
+        stmt = stmt.where(TimeOffRequest.request_type != "back_hours")
     if status_filter:
         stmt = stmt.where(TimeOffRequest.status == status_filter)
     stmt = stmt.order_by(TimeOffRequest.created_at.desc(), TimeOffRequest.id.desc())
@@ -246,6 +248,8 @@ def review_request(
     req = db.get(TimeOffRequest, request_id)
     if req is None:
         raise HTTPException(status_code=404, detail="Time-off request not found")
+    if req.request_type == "back_hours" and user.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Back Hours requests require super admin approval")
     if req.status != "pending":
         raise HTTPException(status_code=400, detail=f"Request already {req.status}")
 
