@@ -568,6 +568,13 @@ class AddHoursInput(BaseModel):
     pay_period_id: int | None = None  # which pay period the hours apply to
 
 
+class DeductHoursInput(BaseModel):
+    employee_id: str
+    type: str  # back_hours, vacation_hours, sick_hours
+    amount: float
+    reason: str | None = None
+
+
 @router.post("/hour-balance/add")
 async def add_hour_balance(
     req: AddHoursInput,
@@ -589,6 +596,37 @@ async def add_hour_balance(
         reason=req.reason,
         pay_period_id=req.pay_period_id,
     )
+    return result
+
+
+@router.post("/hour-balance/deduct")
+async def deduct_hour_balance(
+    req: DeductHoursInput,
+    user: dict = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Manually deduct hours from an employee's running balance. Super admins only."""
+    if req.type not in ("back_hours", "vacation_hours", "sick_hours"):
+        raise HTTPException(400, "Type must be back_hours, vacation_hours, or sick_hours")
+    if req.amount <= 0:
+        raise HTTPException(400, "Amount must be positive")
+    emp = db.query(Employee).filter(Employee.timestation_id == req.employee_id).first()
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    try:
+        result = deduct_hours(
+            db, req.employee_id, req.type, req.amount,
+            input_by=user["timestation_id"],
+            input_by_name=user["name"],
+            reason=req.reason or "Manual balance deduction by super admin",
+        )
+    except ValueError:
+        current = get_balance(db, req.employee_id, req.type)
+        label = req.type.replace("_", " ")
+        raise HTTPException(
+            400,
+            f"Insufficient {label} — employee has {current}h remaining, but deduction requested is {req.amount}h",
+        )
     return result
 
 

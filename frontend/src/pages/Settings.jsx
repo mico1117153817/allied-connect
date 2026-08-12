@@ -31,7 +31,7 @@ export default function Settings() {
   const [rateMsg, setRateMsg] = useState('')
   const [hbEmpId, setHbEmpId] = useState('')
   const [hbData, setHbData] = useState(null)
-  const [hbForm, setHbForm] = useState({ type: 'back_hours', amount: '', reason: '' })
+  const [hbForm, setHbForm] = useState({ action: 'add', type: 'back_hours', amount: '', reason: '' })
   const [hbMsg, setHbMsg] = useState('')
 
   const { data, isLoading } = useQuery({
@@ -528,10 +528,21 @@ export default function Settings() {
                   </div>
                 </div>
 
-                {/* Add hours form */}
+                {/* Add / deduct hours form */}
                 <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <h3 className="text-sm font-medium mb-3">Add Hours</h3>
+                  <h3 className="text-sm font-medium mb-3">Adjust Hours</h3>
                   <div className="flex flex-wrap gap-3 items-end">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Action</label>
+                      <select
+                        value={hbForm.action}
+                        onChange={(e) => setHbForm({ ...hbForm, action: e.target.value })}
+                        className="px-3 py-2 border rounded text-sm"
+                      >
+                        <option value="add">Add Hours</option>
+                        <option value="deduct">Deduct Hours</option>
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Type</label>
                       <select
@@ -569,26 +580,37 @@ export default function Settings() {
                     <button
                       onClick={async () => {
                         try {
-                          await api.post('/api/manager/hour-balance/add', {
+                          const endpoint = hbForm.action === 'deduct'
+                            ? '/api/manager/hour-balance/deduct'
+                            : '/api/manager/hour-balance/add'
+                          await api.post(endpoint, {
                             employee_id: hbEmpId,
                             type: hbForm.type,
                             amount: parseFloat(hbForm.amount),
                             reason: hbForm.reason || null,
                           })
-                          setHbMsg('Hours added!')
+                          setHbMsg(hbForm.action === 'deduct' ? 'Hours deducted!' : 'Hours added!')
                           const resp = await api.get(`/api/manager/hour-balance/${hbEmpId}`)
                           setHbData(resp.data)
-                          setHbForm({ type: 'back_hours', amount: '', reason: '' })
+                          setHbForm({ action: hbForm.action, type: 'back_hours', amount: '', reason: '' })
                         } catch (err) {
-                          setHbMsg('Failed to add hours')
+                          setHbMsg(err.response?.data?.detail || `Failed to ${hbForm.action} hours`)
                         }
                       }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                      className={`px-4 py-2 text-white rounded-lg text-sm font-medium ${
+                        hbForm.action === 'deduct'
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
                     >
-                      Add Hours
+                      {hbForm.action === 'deduct' ? 'Deduct Hours' : 'Add Hours'}
                     </button>
                   </div>
-                  {hbMsg && <p className="text-green-600 text-sm mt-2">{hbMsg}</p>}
+                  {hbMsg && (
+                    <p className={`text-sm mt-2 ${hbMsg.includes('Failed') || hbMsg.includes('Insufficient') ? 'text-red-600' : 'text-green-600'}`}>
+                      {hbMsg}
+                    </p>
+                  )}
                 </div>
 
                 {/* Transaction history */}
