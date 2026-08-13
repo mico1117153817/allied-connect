@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { complianceSummary, filterComplianceRows, compliancePayload } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
@@ -17,6 +17,13 @@ test('complianceSummary counts each decision state', () => {
 test('filterComplianceRows applies status and case-insensitive search', () => {
   assert.deepEqual(filterComplianceRows(rows, 'not authorized', 'new').map(row => row.state), ['New York'])
   assert.deepEqual(filterComplianceRows(rows, 'all', 'dcwp').map(row => row.state), ['New York'])
+})
+
+test('complianceIndicator returns explicit state compliance labels', () => {
+  assert.deepEqual(complianceIndicator({ overall_status: 'Active' }), { symbol: '✓', label: 'In Compliance', tone: 'green' })
+  assert.deepEqual(complianceIndicator({ overall_status: 'Not Authorized' }), { symbol: '✕', label: 'Not In Compliance', tone: 'red' })
+  assert.deepEqual(complianceIndicator({ overall_status: 'Needs Review' }), { symbol: '!', label: 'Needs Review', tone: 'yellow' })
+  assert.deepEqual(complianceIndicator({ overall_status: 'Unknown' }), { symbol: '?', label: 'Unknown', tone: 'gray' })
 })
 
 test('compliancePayload strips computed audit fields and normalizes editable values', () => {

@@ -2,7 +2,7 @@ import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { logout } from '../lib/auth'
-import { compliancePayload, complianceSummary, filterComplianceRows } from '../lib/compliance'
+import { complianceIndicator, compliancePayload, complianceSummary, filterComplianceRows } from '../lib/compliance'
 
 const REQUIREMENTS = ['Required', 'Not Required', 'Local Only', 'Conditional', 'Unknown']
 const LICENSE_STATUSES = ['Active', 'Expired', 'Pending', 'Not Held', 'Want to Get', 'Not Required', 'Perpetual', 'Terminated', 'Unknown']
@@ -75,7 +75,14 @@ function SummaryCard({ label, value, color }) {
 
 function statusClass(indicator) { return ({ green: 'bg-green-100 text-green-800', yellow: 'bg-yellow-100 text-yellow-800', red: 'bg-red-100 text-red-800', gray: 'bg-gray-100 text-gray-700' })[indicator] || 'bg-gray-100 text-gray-700' }
 function ComplianceRow({ row, onEdit }) {
-  return <tr className="border-b hover:bg-blue-50"><td className="p-3 font-semibold">{row.state}</td><td className="p-3"><span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${statusClass(row.indicator)}`}>{row.overall_status}</span></td><td className="p-3">{row.data_confidence}</td><td className="p-3"><div>{row.license_status}</div><div className="text-xs text-gray-500">{row.license_number || 'No number'}{row.license_expiration ? ` · exp ${row.license_expiration}` : ''}</div></td><td className="p-3"><div>{row.coa_requirement}</div><div className="text-xs text-gray-500">{row.coa_status}{row.coa_number ? ` · ${row.coa_number}` : ''}</div></td><td className="p-3"><div>{row.bond_requirement}</div><div className="text-xs text-gray-500">{row.bond_status}{row.bond_amount != null ? ` · $${Number(row.bond_amount).toLocaleString()}` : ''}</div></td><td className="p-3">{row.regulator || '—'}</td><td className="p-3">{(row.source_urls || []).length}</td><td className="p-3"><button onClick={onEdit} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Edit</button></td></tr>
+  const marker = complianceIndicator(row)
+  const markerStyles = {
+    green: 'bg-green-600 text-white ring-green-200',
+    red: 'bg-red-600 text-white ring-red-200',
+    yellow: 'bg-yellow-400 text-yellow-950 ring-yellow-200',
+    gray: 'bg-gray-500 text-white ring-gray-200',
+  }
+  return <tr className="border-b hover:bg-blue-50"><td className="p-3"><div className="flex items-center gap-3"><span title={marker.label} aria-label={`${row.state}: ${marker.label}`} className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black ring-4 ${markerStyles[marker.tone]}`}>{marker.symbol}</span><div><div className="font-semibold">{row.state}</div><div className={`text-xs font-medium ${marker.tone === 'green' ? 'text-green-700' : marker.tone === 'red' ? 'text-red-700' : marker.tone === 'yellow' ? 'text-yellow-700' : 'text-gray-600'}`}>{marker.label}</div></div></div></td><td className="p-3"><span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${statusClass(row.indicator)}`}>{row.overall_status}</span></td><td className="p-3">{row.data_confidence}</td><td className="p-3"><div>{row.license_status}</div><div className="text-xs text-gray-500">{row.license_number || 'No number'}{row.license_expiration ? ` · exp ${row.license_expiration}` : ''}</div></td><td className="p-3"><div>{row.coa_requirement}</div><div className="text-xs text-gray-500">{row.coa_status}{row.coa_number ? ` · ${row.coa_number}` : ''}</div></td><td className="p-3"><div>{row.bond_requirement}</div><div className="text-xs text-gray-500">{row.bond_status}{row.bond_amount != null ? ` · $${Number(row.bond_amount).toLocaleString()}` : ''}</div></td><td className="p-3">{row.regulator || '—'}</td><td className="p-3">{(row.source_urls || []).length}</td><td className="p-3"><button onClick={onEdit} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Edit</button></td></tr>
 }
 
 function Field({ label, children }) { return <label className="block"><span className="block text-xs font-medium text-gray-600 mb-1">{label}</span>{children}</label> }

@@ -27,6 +27,13 @@ export function filterComplianceRows(rows = [], status = 'all', search = '') {
   })
 }
 
+export function complianceIndicator(row) {
+  if (row.overall_status === 'Active') return { symbol: '✓', label: 'In Compliance', tone: 'green' }
+  if (row.overall_status === 'Not Authorized') return { symbol: '✕', label: 'Not In Compliance', tone: 'red' }
+  if (row.overall_status === 'Needs Review') return { symbol: '!', label: 'Needs Review', tone: 'yellow' }
+  return { symbol: '?', label: 'Unknown', tone: 'gray' }
+}
+
 export function compliancePayload(row) {
   const payload = {}
   for (const field of EDITABLE_FIELDS) payload[field] = row[field] ?? null
