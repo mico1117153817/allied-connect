@@ -18,12 +18,14 @@ STATES = [
     "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
     "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
     "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
+    "District of Columbia",
 ]
 REQUIREMENTS = {"Required", "Not Required", "Local Only", "Conditional", "Unknown"}
 LICENSE_STATUSES = {"Active", "Expired", "Pending", "Not Held", "Want to Get", "Not Required", "Perpetual", "Terminated", "Unknown"}
 COA_STATUSES = {"Active", "Pending", "Not Held", "Not Required", "Perpetual", "Revoked", "Terminated", "Unknown"}
 BOND_STATUSES = {"Active", "Expired", "Pending", "Not Held", "Not Required", "Unknown"}
 CONFIDENCE_LEVELS = {"Verified", "High", "Medium", "Low", "Unverified"}
+SOURCE_PATH = "Licensing/Allied_Licensing_Matrix.xlsx"
 SEED_PATH = Path(__file__).resolve().parent.parent / "data" / "state_compliance_seed.json"
 DATE_FIELDS = {
     "license_issue_date", "license_expiration", "license_renewal_due",
@@ -79,9 +81,32 @@ def _row_is_empty(row: StateCompliance) -> bool:
         return False
     return (
         row.license_status in (None, "Not Held")
+        and row.coa_status in (None, "Unknown")
         and not row.certificate_of_authority
-        and row.bond_status in (None, "Expired", "Unknown")
+        and row.bond_status in (None, "Unknown")
     )
+
+
+def _merge_matrix_seed(row: StateCompliance, seed: dict) -> bool:
+    """Merge workbook-backed seed fields into existing rows without removing manual values."""
+    if SOURCE_PATH not in seed.get("document_paths", []):
+        return False
+    changed = False
+    for field, value in seed.items():
+        if field in {"state", "source_urls", "document_paths"} or value in (None, "", []):
+            continue
+        if field in DATE_FIELDS:
+            value = date.fromisoformat(value)
+        current = getattr(row, field, None)
+        if current in (None, "") or (field.endswith("_requirement") and current == "Unknown") or (field == "data_confidence" and current == "Unverified"):
+            setattr(row, field, value)
+            changed = True
+    paths = _loads_list(row.document_paths_json)
+    if SOURCE_PATH not in paths:
+        paths.append(SOURCE_PATH)
+        row.document_paths_json = json.dumps(paths)
+        changed = True
+    return changed
 
 
 def _ensure_states(db: Session):
@@ -102,6 +127,8 @@ def _ensure_states(db: Session):
             changed = True
         elif row.updated_by is None and row.data_confidence == "Unverified" and state in seeds and _row_is_empty(row):
             _seed_row(row, seeds[state])
+            changed = True
+        elif row.updated_by is None and state in seeds and _merge_matrix_seed(row, seeds[state]):
             changed = True
     if changed:
         db.commit()
@@ -174,7 +201,7 @@ def _serialize(row: StateCompliance) -> dict:
 @router.get("")
 async def list_compliance(user: dict = Depends(require_super_admin), db: Session = Depends(get_db)):
     _ensure_states(db)
-    rows = db.query(StateCompliance).order_by(StateCompliance.id).all()
+    rows = db.query(StateCompliance).order_by(StateCompliance.state).all()
     return {"states": [_serialize(row) for row in rows]}
 
 

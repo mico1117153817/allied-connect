@@ -42,7 +42,7 @@ export default function Compliance() {
       </header>
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <SummaryCard label="All States" value={summary.total} color="blue" />
+          <SummaryCard label="All Jurisdictions" value={summary.total} color="blue" />
           <SummaryCard label="Active" value={summary.active} color="green" />
           <SummaryCard label="Needs Review" value={summary.needsReview} color="yellow" />
           <SummaryCard label="Not Authorized" value={summary.notAuthorized} color="red" />

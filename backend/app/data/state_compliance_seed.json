@@ -14,7 +14,8 @@
       "https://www.sos.alabama.gov/business-entities/foreign-corporations"
     ],
     "document_paths": [
-      "Licensing/Alabama/SOSBusinessServiceDocument-20241202000017960.pdf"
+      "Licensing/Alabama/SOSBusinessServiceDocument-20241202000017960.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "001-164-821",
@@ -53,7 +54,9 @@
       "https://difi.az.gov/collection-agencies-nmls",
       "https://www.azcc.gov/corporations/foreign-corporations"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": "COA/entity registration 23118355: Revoked, date 2022-02-14",
     "coa_number": "23118355",
     "coa_issue_date": "2020-10-07",
@@ -76,7 +79,9 @@
       "https://labor.arkansas.gov/licensing/arkansas-state-board-of-collection-agencies/",
       "https://www.sos.arkansas.gov/business-commercial-services-bcs/forms-fees/corporations/foreign-corporations"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "license_number": "AC-6812",
     "license_issue_date": "2025-10-24",
@@ -101,7 +106,9 @@
       "https://dfpi.ca.gov/regulated-industries/debt-collection-licensee/",
       "https://www.sos.ca.gov/business-programs/business-entities/forms"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "coa_number": "4628988",
     "coa_issue_date": "2020-08-10",
@@ -124,7 +131,9 @@
       "https://coag.gov/licensing/collection-agency-regulation/",
       "https://www.sos.state.co.us/pubs/business/businessHome.html"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "license_number": "CAR-L-00212101",
     "license_issue_date": "2025-10-30",
@@ -170,7 +179,8 @@
       "https://corp.delaware.gov/corpformsforcorp09/"
     ],
     "document_paths": [
-      "Licensing/Delaware/DE LIC REN Temp Lic 12 31 26.pdf"
+      "Licensing/Delaware/DE LIC REN Temp Lic 12 31 26.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "license_number": "2020706824",
@@ -180,6 +190,31 @@
     "coa_number": "3338836",
     "coa_issue_date": "2020-07-29",
     "certificate_of_authority": true
+  },
+  {
+    "state": "District of Columbia",
+    "jurisdiction": "District of Columbia",
+    "collection_license_requirement": "Local Only",
+    "license_status": "Active",
+    "license_number": "400325810346",
+    "license_issue_date": "2025-09-24",
+    "license_expiration": "2027-09-30",
+    "license_renewal_due": "2027-09-30",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "coa_number": "C00008494896",
+    "coa_issue_date": "2025-08-22",
+    "certificate_of_authority": true,
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dlcp.dc.gov/"
+    ],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
+    "notes": "District of Columbia collection license and qualification transcribed from Allied_Licensing_Matrix.xlsx tabs Licenses and COAs."
   },
   {
     "state": "Florida",
@@ -197,7 +232,8 @@
     ],
     "document_paths": [
       "Licensing/Florida/4660622730CC.pdf",
-      "Licensing/Florida/Allied Alliance Group Inc.-FL-Certified Copy of Evidence.pdf"
+      "Licensing/Florida/Allied Alliance Group Inc.-FL-Certified Copy of Evidence.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": "Historical Florida license CCA9904444: Terminated, expiration 2021-12-31",
     "license_number": "CCA9904962",
@@ -223,7 +259,8 @@
       "https://sos.ga.gov/how-to-guide/how-to-guide-register-foreign-entity"
     ],
     "document_paths": [
-      "Licensing/Georgia/28254667 (1).pdf"
+      "Licensing/Georgia/28254667 (1).pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "24229283",
@@ -280,7 +317,9 @@
       "https://idfpr.illinois.gov/profs/collections.html",
       "https://www.ilsos.gov/departments/business_services/incorporation/foreign_corporation.html"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": "Chicago license 3051982 active through 2027-10-15. ",
     "license_number": "017.022691",
     "license_issue_date": "2025-12-01",
@@ -325,7 +364,9 @@
       "https://www.iowaattorneygeneral.gov/for-businesses/iowa-consumer-credit-code/debt-collector-notification",
       "https://sos.iowa.gov/businesses/business-entity-forms-and-fees"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "license_number": null,
     "license_issue_date": "2025-09-30",
@@ -349,7 +390,9 @@
       "https://www.ag.ks.gov/consumer-protection",
       "https://sos.ks.gov/businesses/register-a-business.html"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "coa_number": "10018488",
     "coa_issue_date": "2024-12-24",
@@ -370,7 +413,8 @@
       "https://www.sos.ky.gov/bus/Forms/Documents/COA.PDF"
     ],
     "document_paths": [
-      "Licensing/Kentucky/21127349_AAAG_KY_90.00_120224.pdf"
+      "Licensing/Kentucky/21127349_AAAG_KY_90.00_120224.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "1412556.09.99999",
@@ -391,7 +435,9 @@
       "https://ofi.la.gov/non-depository/collection-agencies/",
       "https://www.sos.la.gov/BusinessServices/FileBusinessDocuments/"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "license_number": "46639461I",
     "license_issue_date": "2025-08-26",
@@ -467,7 +513,9 @@
       "https://www.michigan.gov/lara/bureau-list/bpl/occ/prof/collection",
       "https://www.michigan.gov/lara/bureau-list/cscl/corps/corporations/types/foreign-corporation"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "coa_number": "900098798",
     "coa_issue_date": "2025-09-25",
@@ -490,7 +538,9 @@
       "https://mn.gov/commerce/licensing/list/business/collections/index.jsp",
       "https://www.sos.mn.gov/business-liens/business-forms-fees/foreign-corporation-nonprofit-or-cooperative-forms/"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "license_number": "41010273",
     "license_issue_date": "2025-11-13",
@@ -518,7 +568,8 @@
       "https://www.ms.gov/sos/onestopshop/steps"
     ],
     "document_paths": [
-      "Licensing/Mississippi/MS_COA_ONLINE_121724.pdf"
+      "Licensing/Mississippi/MS_COA_ONLINE_121724.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "1468422",
@@ -540,7 +591,8 @@
       "https://www.sos.mo.gov/business/corporations/startbusiness"
     ],
     "document_paths": [
-      "Licensing/Missouri/Certificate of Authority.pdf"
+      "Licensing/Missouri/Certificate of Authority.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "F001432492",
@@ -562,7 +614,8 @@
       "https://biz.sosmt.gov/forms"
     ],
     "document_paths": [
-      "Licensing/Montana/MT_COA_Approval.pdf"
+      "Licensing/Montana/MT_COA_Approval.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "16359355",
@@ -619,7 +672,9 @@
       "https://www.doj.nh.gov/consumer/sourcebook/debt-collection.htm",
       "https://www.sos.nh.gov/corporations-0/forms-and-fees/domestic-and-foreign-corporation"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "coa_number": "1001075",
     "coa_issue_date": "2025-08-12",
@@ -640,7 +695,8 @@
       "https://business.nj.gov/pages/out-of-state-business-registration"
     ],
     "document_paths": [
-      "Licensing/New Jersey/NJ_COA_APPROVAL_2025.pdf"
+      "Licensing/New Jersey/NJ_COA_APPROVAL_2025.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "license_number": "3151573",
@@ -686,7 +742,9 @@
       "https://www.dfs.ny.gov/faqs/industry_faqs/debt",
       "https://dos.ny.gov/application-authority-foreign-business-corporation"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": "Historical NY City, NY license 2096407-DCA: Terminated, expiration 2023-01-31; NY City, NY license 2127071-DCWP is Active, expires 2027-01-31; Yonkers, NY license 10948 is Active, expires 2027-01-31; Additional bond 775230719, $5,000, expires 2026-10-01",
     "coa_number": "5005806",
     "coa_issue_date": "2016-09-09",
@@ -713,7 +771,9 @@
       "https://www.ncdoi.gov/licensees/collection-agency-licensing",
       "https://www.sosnc.gov/divisions/business_registration"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": "Additional bond 7752202155, $10,000, expires 2027-07-01",
     "license_number": "524158447",
     "license_issue_date": "2025-07-30",
@@ -721,8 +781,8 @@
     "license_renewal_due": "2026-06-30",
     "coa_number": "3025562",
     "coa_issue_date": "2025-03-25",
-    "bond_number": "7752202154",
-    "bond_amount": 10000.0,
+    "bond_number": "7752202154; 7752202155",
+    "bond_amount": 20000,
     "bond_expiration": "2027-07-01",
     "certificate_of_authority": true
   },
@@ -759,7 +819,8 @@
       "https://www.ohiosos.gov/business/business-filing-forms/"
     ],
     "document_paths": [
-      "Licensing/Ohio/OH COA Approval.pdf"
+      "Licensing/Ohio/OH COA Approval.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "4524731",
@@ -784,7 +845,8 @@
       "Licensing/Oklahoma/69485660002.PDF",
       "Licensing/Oklahoma/694856600021.PDF",
       "Licensing/Oklahoma/694856600022.PDF",
-      "Licensing/Oklahoma/694856600023.PDF"
+      "Licensing/Oklahoma/694856600023.PDF",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "2313805919",
@@ -823,7 +885,9 @@
       "https://www.pa.gov/agencies/dobs/non-bank-licensees",
       "https://www.pa.gov/agencies/dos/programs/business/types-of-filings-and-registrations/foreign-associations"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "coa_number": "14710142",
     "coa_issue_date": "2025-08-11",
@@ -862,7 +926,8 @@
       "https://sos.sc.gov/online-filings/business-entities"
     ],
     "document_paths": [
-      "Licensing/South Carolina/Screenshot 2025-02-06 140911.png"
+      "Licensing/South Carolina/Screenshot 2025-02-06 140911.png",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "01466206",
@@ -884,7 +949,8 @@
       "https://sdsos.gov/business-services/corporations/corporate-forms/business-corporations.aspx"
     ],
     "document_paths": [
-      "Licensing/South Dakota/RegistrationAcknowledge.pdf"
+      "Licensing/South Dakota/RegistrationAcknowledge.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "FB288803",
@@ -905,7 +971,9 @@
       "https://www.tn.gov/commerce/regboards/collections.html",
       "https://sos.tn.gov/businesses/faqs/how-do-i-file-a-foreign-business-in-tennessee"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "coa_number": "002043043",
     "coa_issue_date": "2025-08-13",
@@ -928,7 +996,9 @@
       "https://www.sos.texas.gov/statdoc/faqs2900.shtml",
       "https://www.sos.state.tx.us/corp/foreign_outofstate.shtml"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "coa_number": "803750209",
     "coa_issue_date": "2025-11-07",
@@ -952,7 +1022,8 @@
       "https://commerce.utah.gov/corporations/business-entities/foreign-profit-corporation/"
     ],
     "document_paths": [
-      "Licensing/Utah/UT_COA_approval.pdf"
+      "Licensing/Utah/UT_COA_approval.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "14526842-0143",
@@ -974,7 +1045,8 @@
       "https://sos.vermont.gov/business-services/business-filings/foreign-registration/"
     ],
     "document_paths": [
-      "Licensing/Vermont/20250107007642.pdf"
+      "Licensing/Vermont/20250107007642.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "20250107007642",
@@ -998,7 +1070,8 @@
     "document_paths": [
       "Licensing/Virginia/BE20210306-21054479-CERT.pdf",
       "Licensing/Virginia/BE20210306-21054479-MISC.pdf",
-      "Licensing/Virginia/BE20210306-21054479-REC.pdf"
+      "Licensing/Virginia/BE20210306-21054479-REC.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "coa_number": "11772346",
@@ -1019,7 +1092,9 @@
       "https://dol.wa.gov/professional-licenses/collection-agencies",
       "https://www.sos.wa.gov/corporations-charities/business-entities/foreign-entity-registration-filings-instructions-and-forms"
     ],
-    "document_paths": [],
+    "document_paths": [
+      "Licensing/Allied_Licensing_Matrix.xlsx"
+    ],
     "notes": null,
     "license_number": "606003075-001-0001",
     "license_issue_date": "2026-01-09",
@@ -1047,7 +1122,8 @@
       "https://sos.wv.gov/business/registration-and-waivers/register-out-state-foreign-business"
     ],
     "document_paths": [
-      "Licensing/West Virginia/WV_COA_APPROVAL_2025.pdf"
+      "Licensing/West Virginia/WV_COA_APPROVAL_2025.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": null,
     "license_number": "2485-4049",
@@ -1076,7 +1152,8 @@
       "https://dfi.wi.gov/Pages/BusinessServices/BusinessEntities/ForeignEntities.aspx"
     ],
     "document_paths": [
-      "Licensing/Wisconsin/CORP18I.pdf"
+      "Licensing/Wisconsin/CORP18I.pdf",
+      "Licensing/Allied_Licensing_Matrix.xlsx"
     ],
     "notes": "COA/entity registration A093877: Terminated / FORFEITED, date 2021-10-14",
     "coa_number": "A114673",

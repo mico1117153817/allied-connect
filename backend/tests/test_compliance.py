@@ -65,6 +65,68 @@ def test_matrix_seed_populates_known_company_records(harness):
     assert "2127071-DCWP" in rows["New York"]["notes"]
 
 
+def test_matrix_seed_includes_all_three_workbook_tabs(harness):
+    client, _ = harness
+    rows = {row["state"]: row for row in client.get("/api/compliance").json()["states"]}
+    assert rows["Colorado"]["coa_number"] == "20258078187"
+    assert rows["Colorado"]["coa_issue_date"] == "2025-09-29"
+    assert rows["Colorado"]["license_number"] == "CAR-L-00212101"
+    assert rows["Colorado"]["license_issue_date"] == "2025-10-30"
+    assert rows["Colorado"]["bond_number"] == "7752031014"
+    assert rows["Colorado"]["bond_amount"] == 12000
+    assert rows["Colorado"]["bond_expiration"] == "2026-07-01"
+    assert "Licensing/Allied_Licensing_Matrix.xlsx" in rows["Colorado"]["document_paths"]
+    assert rows["District of Columbia"]["license_number"] == "400325810346"
+    assert rows["District of Columbia"]["coa_number"] == "C00008494896"
+    assert "Licensing/Allied_Licensing_Matrix.xlsx" in rows["Louisiana"]["document_paths"]
+
+
+def test_matrix_seed_preserves_multiple_and_local_records(harness):
+    client, _ = harness
+    rows = {row["state"]: row for row in client.get("/api/compliance").json()["states"]}
+    assert "7752202154" in rows["North Carolina"]["bond_number"]
+    assert "7752202155" in rows["North Carolina"]["bond_number"]
+    assert "Chicago license 3051982" in rows["Illinois"]["notes"]
+    assert "Yonkers, NY license 10948" in rows["New York"]["notes"]
+
+
+def test_matrix_merge_fills_existing_legacy_rows_without_overwriting_manual_fields(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        row = db.query(compliance_router.StateCompliance).filter_by(state="Colorado").one()
+        row.document_paths_json = None
+        row.bond_number = None
+        row.bond_amount = None
+        row.license_number = "MANUAL-COLORADO"
+        row.updated_by = None
+        db.commit()
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Colorado"]
+    assert row["bond_number"] == "7752031014"
+    assert row["bond_amount"] == 12000
+    assert row["license_number"] == "MANUAL-COLORADO"
+    assert "Licensing/Allied_Licensing_Matrix.xlsx" in row["document_paths"]
+
+
+def test_matrix_merge_preserves_legacy_statuses_and_identifiers(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        row = db.query(compliance_router.StateCompliance).filter_by(state="Colorado").one()
+        row.document_paths_json = None
+        row.license_status = "Expired"
+        row.license_number = "LEGACY-OLD"
+        row.license_expiration = compliance_router.date(2027, 1, 1)
+        row.updated_by = None
+        db.commit()
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Colorado"]
+    assert row["license_status"] == "Expired"
+    assert row["license_number"] == "LEGACY-OLD"
+    assert row["license_expiration"] == "2027-01-01"
+
+
 def test_user_edits_are_not_overwritten_by_seed_data(harness):
     client, _ = harness
     updated = client.put("/api/compliance/Delaware", json={
@@ -82,13 +144,14 @@ def test_user_edits_are_not_overwritten_by_seed_data(harness):
     assert rows["Delaware"]["license_number"] == "MANUAL-123"
 
 
-def test_compliance_register_starts_with_all_50_states(harness):
+def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
     client, _ = harness
     response = client.get("/api/compliance")
     assert response.status_code == 200
     states = response.json()["states"]
-    assert len(states) == 50
+    assert len(states) == 51
     assert states[0]["state"] == "Alabama"
+    assert any(row["state"] == "District of Columbia" for row in states)
     assert states[-1]["state"] == "Wyoming"
     assert states[0]["license_status"] == "Not Required"
     assert states[0]["bond_status"] == "Unknown"
@@ -195,6 +258,51 @@ def test_seed_preserves_legacy_status_values_without_numbers(harness):
     assert rows["Delaware"]["license_status"] == "Active"
     assert rows["Delaware"]["certificate_of_authority"] is True
     assert rows["Delaware"]["bond_status"] == "Active"
+
+
+def test_seed_preserves_legacy_expired_bond_status(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        row = db.query(compliance_router.StateCompliance).filter_by(state="Colorado").one()
+        for field in (
+            "license_number", "license_issue_date", "license_expiration", "license_renewal_due",
+            "coa_number", "coa_issue_date", "bond_number", "bond_amount", "bond_expiration",
+            "regulator", "notes", "source_urls_json", "document_paths_json",
+        ):
+            setattr(row, field, None)
+        row.updated_by = None
+        row.data_confidence = "Unverified"
+        row.license_status = "Not Held"
+        row.certificate_of_authority = False
+        row.bond_status = "Expired"
+        db.commit()
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Colorado"]
+    assert row["bond_status"] == "Expired"
+
+
+def test_seed_preserves_legacy_revoked_coa_status(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        row = db.query(compliance_router.StateCompliance).filter_by(state="Colorado").one()
+        for field in (
+            "license_number", "license_issue_date", "license_expiration", "license_renewal_due",
+            "coa_number", "coa_issue_date", "bond_number", "bond_amount", "bond_expiration",
+            "regulator", "notes", "source_urls_json", "document_paths_json",
+        ):
+            setattr(row, field, None)
+        row.updated_by = None
+        row.data_confidence = "Unverified"
+        row.license_status = "Not Held"
+        row.coa_status = "Revoked"
+        row.certificate_of_authority = False
+        row.bond_status = "Unknown"
+        db.commit()
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Colorado"]
+    assert row["coa_status"] == "Revoked"
 
 
 def test_postgresql_upgrade_ddl_is_idempotent():
