@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from app.config import settings
 from app.models.database import Base, engine, SessionLocal
 from app.models.employee import Employee
-from app.routers import auth, employee, time_off, manager, documents, settings as settings_router
+from app.routers import auth, employee, time_off, manager, documents, settings as settings_router, compliance
 from app.services.scheduler import start_scheduler
 from app.services.settings_service import init_defaults
 from app.services.timestation import timestation
@@ -155,6 +155,7 @@ app.include_router(time_off.router)
 app.include_router(manager.router)
 app.include_router(documents.router)
 app.include_router(settings_router.router)
+app.include_router(compliance.router)
 
 
 # Health check

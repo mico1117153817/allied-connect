@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { logout } from '../lib/auth'
+import { logout, isSuperAdmin } from '../lib/auth'
 
 export default function Manager() {
   const qc = useQueryClient()
@@ -124,6 +124,7 @@ export default function Manager() {
             <a href="/dashboard" className="text-sm text-blue-600 hover:underline">Employee View</a>
             <a href="/manage-documents" className="text-sm text-blue-600 hover:underline">Documents</a>
             <a href="/directory" className="text-sm text-blue-600 hover:underline">Employee Directory</a>
+            {isSuperAdmin() && <a href="/compliance" className="text-sm text-blue-600 hover:underline">Compliance</a>}
             <a href="/settings" className="text-sm text-blue-600 hover:underline">Settings</a>
             <button onClick={logout} className="text-sm text-red-600 hover:underline text-left sm:text-center">Logout</button>
           </nav>
