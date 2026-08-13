@@ -127,6 +127,25 @@ def test_matrix_merge_preserves_legacy_statuses_and_identifiers(harness):
     assert row["license_expiration"] == "2027-01-01"
 
 
+def test_matrix_merge_keeps_coa_boolean_consistent(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        row = db.query(compliance_router.StateCompliance).filter_by(state="Colorado").one()
+        row.document_paths_json = None
+        row.coa_status = "Unknown"
+        row.coa_number = None
+        row.coa_issue_date = None
+        row.certificate_of_authority = False
+        row.updated_by = None
+        db.commit()
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Colorado"]
+    assert row["coa_status"] == "Perpetual"
+    assert row["coa_number"] == "20258078187"
+    assert row["certificate_of_authority"] is True
+
+
 def test_user_edits_are_not_overwritten_by_seed_data(harness):
     client, _ = harness
     updated = client.put("/api/compliance/Delaware", json={
