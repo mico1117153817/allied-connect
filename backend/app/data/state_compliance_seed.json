@@ -1,0 +1,1107 @@
+[
+  {
+    "state": "Alabama",
+    "jurisdiction": "Alabama",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.revenue.alabama.gov/division/business-license/",
+      "https://www.sos.alabama.gov/business-entities/foreign-corporations"
+    ],
+    "document_paths": [
+      "Licensing/Alabama/SOSBusinessServiceDocument-20241202000017960.pdf"
+    ],
+    "notes": null,
+    "coa_number": "001-164-821",
+    "coa_issue_date": "2024-12-02",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Alaska",
+    "jurisdiction": "Alaska",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.commerce.alaska.gov/web/cbpl/ProfessionalLicensing/CollectionAgencies",
+      "https://www.commerce.alaska.gov/web/cbpl/Corporations/OnlineFilingInstructionsBusCorpCertAuthority"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Arizona",
+    "jurisdiction": "Arizona",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Revoked",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://difi.az.gov/collection-agencies-nmls",
+      "https://www.azcc.gov/corporations/foreign-corporations"
+    ],
+    "document_paths": [],
+    "notes": "COA/entity registration 23118355: Revoked, date 2022-02-14",
+    "coa_number": "23118355",
+    "coa_issue_date": "2020-10-07",
+    "bond_number": "7752011045",
+    "bond_amount": 10000.0,
+    "bond_expiration": "2027-02-01",
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Arkansas",
+    "jurisdiction": "Arkansas",
+    "collection_license_requirement": "Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://labor.arkansas.gov/licensing/arkansas-state-board-of-collection-agencies/",
+      "https://www.sos.arkansas.gov/business-commercial-services-bcs/forms-fees/corporations/foreign-corporations"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "license_number": "AC-6812",
+    "license_issue_date": "2025-10-24",
+    "license_expiration": "2027-06-30",
+    "license_renewal_due": "2027-06-30",
+    "bond_number": "7752021280",
+    "bond_amount": 25000.0,
+    "bond_expiration": "2026-07-01",
+    "certificate_of_authority": false
+  },
+  {
+    "state": "California",
+    "jurisdiction": "California",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dfpi.ca.gov/regulated-industries/debt-collection-licensee/",
+      "https://www.sos.ca.gov/business-programs/business-entities/forms"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "coa_number": "4628988",
+    "coa_issue_date": "2020-08-10",
+    "bond_number": "775247345",
+    "bond_amount": 25000.0,
+    "bond_expiration": "2027-01-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Colorado",
+    "jurisdiction": "Colorado",
+    "collection_license_requirement": "Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://coag.gov/licensing/collection-agency-regulation/",
+      "https://www.sos.state.co.us/pubs/business/businessHome.html"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "license_number": "CAR-L-00212101",
+    "license_issue_date": "2025-10-30",
+    "license_expiration": "2026-07-01",
+    "license_renewal_due": "2026-07-01",
+    "coa_number": "20258078187",
+    "coa_issue_date": "2025-09-29",
+    "bond_number": "7752031014",
+    "bond_amount": 12000.0,
+    "bond_expiration": "2026-07-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Connecticut",
+    "jurisdiction": "Connecticut",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://portal.ct.gov/dob/consumer-credit-licensing-info/consumer-credit-licensing-information/collection-agency-licensing-information",
+      "https://business.ct.gov/knowledge-base/articles/foreign-vs-domestic---formation-vs-registration"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Delaware",
+    "jurisdiction": "Delaware",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://attorneygeneral.delaware.gov/fraud/cpu/debt-advisory/",
+      "https://corp.delaware.gov/corpformsforcorp09/"
+    ],
+    "document_paths": [
+      "Licensing/Delaware/DE LIC REN Temp Lic 12 31 26.pdf"
+    ],
+    "notes": null,
+    "license_number": "2020706824",
+    "license_issue_date": "2020-08-14",
+    "license_expiration": "2026-12-31",
+    "license_renewal_due": "2026-12-31",
+    "coa_number": "3338836",
+    "coa_issue_date": "2020-07-29",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Florida",
+    "jurisdiction": "Florida",
+    "collection_license_requirement": "Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://flofr.gov/divisions-offices/division-of-consumer-finance/consumer-collection-agencies",
+      "https://dos.fl.gov/sunbiz/forms/corporations/"
+    ],
+    "document_paths": [
+      "Licensing/Florida/4660622730CC.pdf",
+      "Licensing/Florida/Allied Alliance Group Inc.-FL-Certified Copy of Evidence.pdf"
+    ],
+    "notes": "Historical Florida license CCA9904444: Terminated, expiration 2021-12-31",
+    "license_number": "CCA9904962",
+    "license_issue_date": "2024-09-13",
+    "license_expiration": "2026-12-31",
+    "license_renewal_due": "2026-12-31",
+    "coa_number": "F20000003417",
+    "coa_issue_date": "2020-07-27",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Georgia",
+    "jurisdiction": "Georgia",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dbf.georgia.gov/debt-collection",
+      "https://sos.ga.gov/how-to-guide/how-to-guide-register-foreign-entity"
+    ],
+    "document_paths": [
+      "Licensing/Georgia/28254667 (1).pdf"
+    ],
+    "notes": null,
+    "coa_number": "24229283",
+    "coa_issue_date": "2024-12-11",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Hawaii",
+    "jurisdiction": "Hawaii",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://cca.hawaii.gov/pvl/programs/collection/",
+      "https://cca.hawaii.gov/breg/"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Idaho",
+    "jurisdiction": "Idaho",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.finance.idaho.gov/consumer-finance-bureau/collection-agencies/",
+      "https://sosbiz.idaho.gov/forms"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Illinois",
+    "jurisdiction": "Illinois",
+    "collection_license_requirement": "Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://idfpr.illinois.gov/profs/collections.html",
+      "https://www.ilsos.gov/departments/business_services/incorporation/foreign_corporation.html"
+    ],
+    "document_paths": [],
+    "notes": "Chicago license 3051982 active through 2027-10-15. ",
+    "license_number": "017.022691",
+    "license_issue_date": "2025-12-01",
+    "license_expiration": "2026-12-31",
+    "license_renewal_due": "2026-12-31",
+    "coa_number": "75103115",
+    "coa_issue_date": "2025-09-17",
+    "bond_number": "7752081177",
+    "bond_amount": 25000.0,
+    "bond_expiration": "2027-05-31",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Indiana",
+    "jurisdiction": "Indiana",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://securities.sos.in.gov/general-information/collection-agency/",
+      "https://www.in.gov/sos/business/division-forms/business-forms/"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Iowa",
+    "jurisdiction": "Iowa",
+    "collection_license_requirement": "Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.iowaattorneygeneral.gov/for-businesses/iowa-consumer-credit-code/debt-collector-notification",
+      "https://sos.iowa.gov/businesses/business-entity-forms-and-fees"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "license_number": null,
+    "license_issue_date": "2025-09-30",
+    "license_expiration": "2027-01-31",
+    "license_renewal_due": "2027-01-31",
+    "coa_number": "839164",
+    "coa_issue_date": "2025-08-22",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Kansas",
+    "jurisdiction": "Kansas",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.ag.ks.gov/consumer-protection",
+      "https://sos.ks.gov/businesses/register-a-business.html"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "coa_number": "10018488",
+    "coa_issue_date": "2024-12-24",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Kentucky",
+    "jurisdiction": "Kentucky",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.ag.ky.gov/Resources/Consumer-Resources/Consumers/Pages/Debt-Collectors.aspx",
+      "https://www.sos.ky.gov/bus/Forms/Documents/COA.PDF"
+    ],
+    "document_paths": [
+      "Licensing/Kentucky/21127349_AAAG_KY_90.00_120224.pdf"
+    ],
+    "notes": null,
+    "coa_number": "1412556.09.99999",
+    "coa_issue_date": "2024-12-02",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Louisiana",
+    "jurisdiction": "Louisiana",
+    "collection_license_requirement": "Required",
+    "license_status": "Perpetual",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://ofi.la.gov/non-depository/collection-agencies/",
+      "https://www.sos.la.gov/BusinessServices/FileBusinessDocuments/"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "license_number": "46639461I",
+    "license_issue_date": "2025-08-26",
+    "license_expiration": null,
+    "license_renewal_due": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Maine",
+    "jurisdiction": "Maine",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.maine.gov/pfr/consumercredit/industry/licensing/debt_collector.htm",
+      "https://www.maine.gov/sos/corporations-commissions/information-about-entities/entity-types/foreign-entites"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Maryland",
+    "jurisdiction": "Maryland",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://labor.maryland.gov/finance/collagboard.shtml",
+      "https://dat.maryland.gov/businesses/Pages/Non-Maryland-(Foreign"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Massachusetts",
+    "jurisdiction": "Massachusetts",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.mass.gov/info-details/debt-collections",
+      "https://www.sec.state.ma.us/divisions/corporations/filing-by-subject/corporations/corporations-domestic-foreign.htm"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Michigan",
+    "jurisdiction": "Michigan",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.michigan.gov/lara/bureau-list/bpl/occ/prof/collection",
+      "https://www.michigan.gov/lara/bureau-list/cscl/corps/corporations/types/foreign-corporation"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "coa_number": "900098798",
+    "coa_issue_date": "2025-09-25",
+    "bond_number": "775214976",
+    "bond_amount": 5000.0,
+    "bond_expiration": "2026-07-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Minnesota",
+    "jurisdiction": "Minnesota",
+    "collection_license_requirement": "Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://mn.gov/commerce/licensing/list/business/collections/index.jsp",
+      "https://www.sos.mn.gov/business-liens/business-forms-fees/foreign-corporation-nonprofit-or-cooperative-forms/"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "license_number": "41010273",
+    "license_issue_date": "2025-11-13",
+    "license_expiration": "2027-06-30",
+    "license_renewal_due": "2027-06-30",
+    "coa_number": "1584079200045",
+    "coa_issue_date": "2025-10-02",
+    "bond_number": "7752151287",
+    "bond_amount": 50000.0,
+    "bond_expiration": "2027-06-30",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Mississippi",
+    "jurisdiction": "Mississippi",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dbcf.ms.gov/consumer-finance/",
+      "https://www.ms.gov/sos/onestopshop/steps"
+    ],
+    "document_paths": [
+      "Licensing/Mississippi/MS_COA_ONLINE_121724.pdf"
+    ],
+    "notes": null,
+    "coa_number": "1468422",
+    "coa_issue_date": "2024-12-11",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Missouri",
+    "jurisdiction": "Missouri",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://finance.mo.gov/consumer-credit-licensing",
+      "https://www.sos.mo.gov/business/corporations/startbusiness"
+    ],
+    "document_paths": [
+      "Licensing/Missouri/Certificate of Authority.pdf"
+    ],
+    "notes": null,
+    "coa_number": "F001432492",
+    "coa_issue_date": "2024-12-11",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Montana",
+    "jurisdiction": "Montana",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dojmt.gov/consumer/",
+      "https://biz.sosmt.gov/forms"
+    ],
+    "document_paths": [
+      "Licensing/Montana/MT_COA_Approval.pdf"
+    ],
+    "notes": null,
+    "coa_number": "16359355",
+    "coa_issue_date": "2024-12-11",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Nebraska",
+    "jurisdiction": "Nebraska",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://sos.nebraska.gov/licensing/collection-agencies",
+      "https://www.nebraska.gov/osbr/index.cgi?forms=foreign"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Nevada",
+    "jurisdiction": "Nevada",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://fid.nv.gov/Licensing/Collection_Agency,_Collection_Manager/COLLECTION_AGENCY_APPLICATION_PACKAGE/",
+      "https://www.nvsos.gov/businesses/start-a-business/corporation"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "New Hampshire",
+    "jurisdiction": "New Hampshire",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.doj.nh.gov/consumer/sourcebook/debt-collection.htm",
+      "https://www.sos.nh.gov/corporations-0/forms-and-fees/domestic-and-foreign-corporation"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "coa_number": "1001075",
+    "coa_issue_date": "2025-08-12",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "New Jersey",
+    "jurisdiction": "New Jersey",
+    "collection_license_requirement": "Required",
+    "license_status": "Perpetual",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.nj.gov/treasury/revenue/filecollagbond.shtml",
+      "https://business.nj.gov/pages/out-of-state-business-registration"
+    ],
+    "document_paths": [
+      "Licensing/New Jersey/NJ_COA_APPROVAL_2025.pdf"
+    ],
+    "notes": null,
+    "license_number": "3151573",
+    "license_issue_date": "2025-09-04",
+    "license_expiration": null,
+    "license_renewal_due": null,
+    "coa_number": "0451327345",
+    "coa_issue_date": "2025-08-12",
+    "bond_number": "7752181227",
+    "bond_amount": 5000.0,
+    "bond_expiration": "2026-08-12",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "New Mexico",
+    "jurisdiction": "New Mexico",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.rld.nm.gov/financial-institutions/who-we-regulate/collection-agencies-branches-managers-and-repossessors/",
+      "https://enterprise.sos.nm.gov/forms/business"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "New York",
+    "jurisdiction": "New York",
+    "collection_license_requirement": "Local Only",
+    "license_status": "Active",
+    "coa_requirement": "Not Required",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.dfs.ny.gov/faqs/industry_faqs/debt",
+      "https://dos.ny.gov/application-authority-foreign-business-corporation"
+    ],
+    "document_paths": [],
+    "notes": "Historical NY City, NY license 2096407-DCA: Terminated, expiration 2023-01-31; NY City, NY license 2127071-DCWP is Active, expires 2027-01-31; Yonkers, NY license 10948 is Active, expires 2027-01-31; Additional bond 775230719, $5,000, expires 2026-10-01",
+    "coa_number": "5005806",
+    "coa_issue_date": "2016-09-09",
+    "bond_number": "775230689; 775230719",
+    "bond_amount": 10000,
+    "bond_expiration": "2026-10-01",
+    "license_number": "2127071-DCWP",
+    "license_issue_date": "2025-03-07",
+    "license_expiration": "2027-01-31",
+    "license_renewal_due": "2027-01-31",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "North Carolina",
+    "jurisdiction": "North Carolina",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.ncdoi.gov/licensees/collection-agency-licensing",
+      "https://www.sosnc.gov/divisions/business_registration"
+    ],
+    "document_paths": [],
+    "notes": "Additional bond 7752202155, $10,000, expires 2027-07-01",
+    "license_number": "524158447",
+    "license_issue_date": "2025-07-30",
+    "license_expiration": "2026-06-30",
+    "license_renewal_due": "2026-06-30",
+    "coa_number": "3025562",
+    "coa_issue_date": "2025-03-25",
+    "bond_number": "7752202154",
+    "bond_amount": 10000.0,
+    "bond_expiration": "2027-07-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "North Dakota",
+    "jurisdiction": "North Dakota",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.nd.gov/dfi/about-dfi/non-depository/frequently-asked-questions-non-depository",
+      "https://www.sos.nd.gov/business/business-services/business-structures/corporation"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Ohio",
+    "jurisdiction": "Ohio",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://clients.ohiosbdc.ohio.gov/DocumentMaster.aspx?doc=2604",
+      "https://www.ohiosos.gov/business/business-filing-forms/"
+    ],
+    "document_paths": [
+      "Licensing/Ohio/OH COA Approval.pdf"
+    ],
+    "notes": null,
+    "coa_number": "4524731",
+    "coa_issue_date": "2020-08-14",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Oklahoma",
+    "jurisdiction": "Oklahoma",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://oklahoma.gov/okdocc.html",
+      "https://www.sos.ok.gov/business/forms.aspx"
+    ],
+    "document_paths": [
+      "Licensing/Oklahoma/69485660002.PDF",
+      "Licensing/Oklahoma/694856600021.PDF",
+      "Licensing/Oklahoma/694856600022.PDF",
+      "Licensing/Oklahoma/694856600023.PDF"
+    ],
+    "notes": null,
+    "coa_number": "2313805919",
+    "coa_issue_date": "2025-02-06",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Oregon",
+    "jurisdiction": "Oregon",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dfr.oregon.gov/business/licensing/financial/pages/collection-agencies.aspx",
+      "https://sos.oregon.gov/business/pages/obr-fbc-registration.aspx"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "Pennsylvania",
+    "jurisdiction": "Pennsylvania",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.pa.gov/agencies/dobs/non-bank-licensees",
+      "https://www.pa.gov/agencies/dos/programs/business/types-of-filings-and-registrations/foreign-associations"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "coa_number": "14710142",
+    "coa_issue_date": "2025-08-11",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Rhode Island",
+    "jurisdiction": "Rhode Island",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dbr.ri.gov/about-dbr/i-need-initial-license",
+      "https://www.sos.ri.gov/divisions/business-services/foreign-business/register-your-business-in-ri/ForeignBusinessCorporationInstructions"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  },
+  {
+    "state": "South Carolina",
+    "jurisdiction": "South Carolina",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://consumer.sc.gov/business-resourceslaws/licensing",
+      "https://sos.sc.gov/online-filings/business-entities"
+    ],
+    "document_paths": [
+      "Licensing/South Carolina/Screenshot 2025-02-06 140911.png"
+    ],
+    "notes": null,
+    "coa_number": "01466206",
+    "coa_issue_date": "2024-12-12",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "South Dakota",
+    "jurisdiction": "South Dakota",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://consumer.sd.gov/fastfacts/debtcollection.aspx",
+      "https://sdsos.gov/business-services/corporations/corporate-forms/business-corporations.aspx"
+    ],
+    "document_paths": [
+      "Licensing/South Dakota/RegistrationAcknowledge.pdf"
+    ],
+    "notes": null,
+    "coa_number": "FB288803",
+    "coa_issue_date": "2024-12-12",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Tennessee",
+    "jurisdiction": "Tennessee",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.tn.gov/commerce/regboards/collections.html",
+      "https://sos.tn.gov/businesses/faqs/how-do-i-file-a-foreign-business-in-tennessee"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "coa_number": "002043043",
+    "coa_issue_date": "2025-08-13",
+    "bond_number": "775223896",
+    "bond_amount": 25000.0,
+    "bond_expiration": "2027-01-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Texas",
+    "jurisdiction": "Texas",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.sos.texas.gov/statdoc/faqs2900.shtml",
+      "https://www.sos.state.tx.us/corp/foreign_outofstate.shtml"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "coa_number": "803750209",
+    "coa_issue_date": "2025-11-07",
+    "bond_number": "7752241590",
+    "bond_amount": 10000.0,
+    "bond_expiration": "2026-09-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Utah",
+    "jurisdiction": "Utah",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://commerce.utah.gov/corporations/business-entities/collection-agency/",
+      "https://commerce.utah.gov/corporations/business-entities/foreign-profit-corporation/"
+    ],
+    "document_paths": [
+      "Licensing/Utah/UT_COA_approval.pdf"
+    ],
+    "notes": null,
+    "coa_number": "14526842-0143",
+    "coa_issue_date": "2024-12-12",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Vermont",
+    "jurisdiction": "Vermont",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Not Required",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://ago.vermont.gov/attorney-generals-office-divisions-and-unit/consumer-protection/money-and-credit/debt-collectors",
+      "https://sos.vermont.gov/business-services/business-filings/foreign-registration/"
+    ],
+    "document_paths": [
+      "Licensing/Vermont/20250107007642.pdf"
+    ],
+    "notes": null,
+    "coa_number": "20250107007642",
+    "coa_issue_date": "2025-01-06",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Virginia",
+    "jurisdiction": "Virginia",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://www.scc.virginia.gov/regulated-industries/financial-institutions/",
+      "https://www.scc.virginia.gov/businesses/business-faqs/foreign-business-entities/"
+    ],
+    "document_paths": [
+      "Licensing/Virginia/BE20210306-21054479-CERT.pdf",
+      "Licensing/Virginia/BE20210306-21054479-MISC.pdf",
+      "Licensing/Virginia/BE20210306-21054479-REC.pdf"
+    ],
+    "notes": null,
+    "coa_number": "11772346",
+    "coa_issue_date": "2024-11-21",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Washington",
+    "jurisdiction": "Washington",
+    "collection_license_requirement": "Required",
+    "license_status": "Active",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dol.wa.gov/professional-licenses/collection-agencies",
+      "https://www.sos.wa.gov/corporations-charities/business-entities/foreign-entity-registration-filings-instructions-and-forms"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "license_number": "606003075-001-0001",
+    "license_issue_date": "2026-01-09",
+    "license_expiration": "2027-01-31",
+    "license_renewal_due": "2027-01-31",
+    "coa_number": "606003075",
+    "coa_issue_date": "2025-11-19",
+    "bond_number": "775226981",
+    "bond_amount": 5000.0,
+    "bond_expiration": "2027-01-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "West Virginia",
+    "jurisdiction": "West Virginia",
+    "collection_license_requirement": "Not Required",
+    "license_status": "Perpetual",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://tax.wv.gov/Business/BusinessRegistration/Pages/BusinessRegistrationCollectionAgencies.aspx",
+      "https://sos.wv.gov/business/registration-and-waivers/register-out-state-foreign-business"
+    ],
+    "document_paths": [
+      "Licensing/West Virginia/WV_COA_APPROVAL_2025.pdf"
+    ],
+    "notes": null,
+    "license_number": "2485-4049",
+    "license_issue_date": "2025-09-18",
+    "license_expiration": null,
+    "license_renewal_due": null,
+    "coa_number": "0603886",
+    "coa_issue_date": "2025-08-07",
+    "bond_number": "7752271069",
+    "bond_amount": 5000.0,
+    "bond_expiration": "2026-07-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Wisconsin",
+    "jurisdiction": "Wisconsin",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Perpetual",
+    "bond_requirement": "Required",
+    "bond_status": "Active",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://dfi.wi.gov/Pages/FinancialServices/LicensedFinancial/CollectionAgency.aspx",
+      "https://dfi.wi.gov/Pages/BusinessServices/BusinessEntities/ForeignEntities.aspx"
+    ],
+    "document_paths": [
+      "Licensing/Wisconsin/CORP18I.pdf"
+    ],
+    "notes": "COA/entity registration A093877: Terminated / FORFEITED, date 2021-10-14",
+    "coa_number": "A114673",
+    "coa_issue_date": "2024-12-20",
+    "bond_number": "775228508",
+    "bond_amount": 35000.0,
+    "bond_expiration": "2027-07-01",
+    "certificate_of_authority": true
+  },
+  {
+    "state": "Wyoming",
+    "jurisdiction": "Wyoming",
+    "collection_license_requirement": "Required",
+    "license_status": "Not Held",
+    "coa_requirement": "Conditional",
+    "coa_status": "Not Held",
+    "bond_requirement": "Unknown",
+    "bond_status": "Unknown",
+    "data_confidence": "High",
+    "source_urls": [
+      "https://wyomingcollectionagencyboard.wyo.gov/home/collection-license-application",
+      "https://wyobiz.wyo.gov/Business/RegistrationType.aspx"
+    ],
+    "document_paths": [],
+    "notes": null,
+    "certificate_of_authority": false
+  }
+]
