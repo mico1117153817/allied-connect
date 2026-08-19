@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { formatCalendarDate } from '../lib/calendar'
 import { logout, isSuperAdmin } from '../lib/auth'
 
 export default function Manager() {
@@ -602,7 +603,7 @@ export default function Manager() {
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">
-                {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                {formatCalendarDate(selectedDay.date)}
               </h3>
               <button onClick={() => setSelectedDay(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
             </div>
