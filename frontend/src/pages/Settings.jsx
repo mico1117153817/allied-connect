@@ -33,6 +33,7 @@ export default function Settings() {
   const [hbData, setHbData] = useState(null)
   const [hbForm, setHbForm] = useState({ action: 'add', type: 'back_hours', amount: '', reason: '' })
   const [hbMsg, setHbMsg] = useState('')
+  const [loginAccessMsg, setLoginAccessMsg] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -72,6 +73,15 @@ export default function Settings() {
       setMsg('Schedule saved!')
     },
     onError: () => setMsg('Failed to save schedule.'),
+  })
+
+  const loginAccessMutation = useMutation({
+    mutationFn: ({ employeeId, loginEnabled }) => api.put(`/api/manager/employee/${employeeId}/login-access`, { login_enabled: loginEnabled }),
+    onSuccess: (response) => {
+      qc.invalidateQueries({ queryKey: ['all-employees'] })
+      setLoginAccessMsg(`${response.data.name}'s login is now ${response.data.login_enabled ? 'enabled' : 'disabled'}.`)
+    },
+    onError: (error) => setLoginAccessMsg(error.response?.data?.detail || 'Failed to update login access.'),
   })
 
   const formatLabel = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -148,6 +158,36 @@ export default function Settings() {
             {msg}
           </div>
         )}
+
+        {/* Employee Login Access */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold">Employee Login Access</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-4">Managers and super admins can disable an employee's Allied Connect login. Disabling access immediately blocks new logins and existing sessions. Super-admin accounts cannot be disabled here.</p>
+          {loginAccessMsg && <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-800">{loginAccessMsg}</div>}
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {empData?.employees?.map(employee => (
+              <div key={employee.timestation_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border rounded-lg p-3">
+                <div>
+                  <p className="font-medium">{employee.name}</p>
+                  <p className="text-xs text-gray-500 capitalize">{employee.role?.replace('_', ' ')} · {employee.department || 'No department'}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${employee.login_enabled === false ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{employee.login_enabled === false ? 'Login Disabled' : 'Login Enabled'}</span>
+                  {employee.role !== 'super_admin' && (
+                    <button
+                      type="button"
+                      disabled={loginAccessMutation.isPending}
+                      onClick={() => loginAccessMutation.mutate({ employeeId: employee.timestation_id, loginEnabled: employee.login_enabled === false })}
+                      className={`px-3 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 ${employee.login_enabled === false ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                    >
+                      {employee.login_enabled === false ? 'Enable Login' : 'Disable Login'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Late Threshold Setting */}
         <div className="bg-white rounded-xl shadow-sm p-6">

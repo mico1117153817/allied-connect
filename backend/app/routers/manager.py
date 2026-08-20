@@ -69,6 +69,7 @@ async def list_all_employees(
                 "status": emp.get("status", ""),
                 "email": emp.get("email") or (db_emp.email if db_emp else None),
                 "role": db_emp.role if db_emp else "employee",
+                "login_enabled": db_emp.login_enabled if db_emp else True,
                 "custom_id": emp.get("custom_employee_id", ""),
             }
         )
@@ -89,11 +90,41 @@ async def list_all_employees(
                 "status": emp.status or "out",
                 "email": emp.email,
                 "role": emp.role,
+                "login_enabled": emp.login_enabled,
                 "custom_id": emp.custom_employee_id or "",
             }
         )
 
     return {"employees": result}
+
+
+# ── Employee portal login access ────────────────────────────────
+
+class LoginAccessInput(BaseModel):
+    login_enabled: bool
+
+
+@router.put("/employee/{employee_id}/login-access")
+def set_employee_login_access(
+    employee_id: str,
+    req: LoginAccessInput,
+    user: dict = Depends(require_manager),
+    db: Session = Depends(get_db),
+):
+    emp = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    if emp.role == "super_admin" and not req.login_enabled:
+        raise HTTPException(403, "Super-admin login access cannot be disabled from this screen")
+    if emp.timestation_id == user.get("timestation_id") and not req.login_enabled:
+        raise HTTPException(400, "You cannot disable your own login")
+    emp.login_enabled = req.login_enabled
+    db.commit()
+    return {
+        "employee_id": emp.timestation_id,
+        "name": emp.name,
+        "login_enabled": emp.login_enabled,
+    }
 
 
 # ── Pay adjustments (back hours & vacation hours) ──────────────

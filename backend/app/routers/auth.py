@@ -100,11 +100,23 @@ async def login(
             detail="Invalid PIN",
         )
 
-    # Upsert Employee in the local DB (preserve existing role)
+    # Disabled local records remain authoritative even when TimeStation still lists the PIN.
+    if local_emp and local_emp.login_enabled is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your Allied Connect login has been disabled. Contact management for assistance.",
+        )
+
+    # Upsert Employee in the local DB (preserve existing role and login access)
     timestation_id = ts_emp.get("employee_id", "") if ts_emp else matched.get("employee_id", "")
     existing = (
         db.query(Employee).filter(Employee.timestation_id == timestation_id).first()
     )
+    if existing and existing.login_enabled is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your Allied Connect login has been disabled. Contact management for assistance.",
+        )
 
     if existing:
         # Update from TimeStation if available; preserve role and email if local-only
@@ -194,6 +206,13 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    employee = db.query(Employee).filter(Employee.timestation_id == payload.get("sub")).first()
+    if employee and employee.login_enabled is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your Allied Connect login has been disabled. Contact management for assistance.",
         )
 
     return {

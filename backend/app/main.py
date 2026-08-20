@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.models.database import Base, engine, SessionLocal
-from app.models.employee import Employee
+from app.models.employee import Employee, ensure_employee_schema
 from app.models.state_compliance import ensure_state_compliance_schema
 from app.routers import auth, employee, time_off, manager, documents, settings as settings_router, compliance
 from app.services.scheduler import start_scheduler
@@ -110,6 +110,7 @@ async def bootstrap_managers():
 async def lifespan(app: FastAPI):
     # Create tables and safely add columns introduced after initial deployment.
     Base.metadata.create_all(bind=engine)
+    ensure_employee_schema(engine)
     ensure_state_compliance_schema(engine)
     # Seed default settings
     db = SessionLocal()

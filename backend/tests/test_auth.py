@@ -14,6 +14,7 @@ from app.models.database import Base, get_db
 # Import Employee so its table is registered on Base.metadata
 from app.models.employee import Employee  # noqa: F401
 from app.routers.auth import router, get_current_user, require_manager
+from app.routers import manager as manager_router
 
 
 # ── test data ───────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ def app():
 
     app = FastAPI()
     app.include_router(router)
+    app.include_router(manager_router.router)
     app.dependency_overrides[get_db] = override_get_db
 
     yield app
@@ -176,6 +178,68 @@ def test_login_successful_clears_pin_attempts(client):
         # Subsequent wrong-PIN attempt should be 401, not 429
         resp2 = client.post("/auth/login", json={"pin": "0000"})
         assert resp2.status_code == 401
+
+
+def _manager_headers():
+    token = create_access_token({"sub": "mgr_1", "name": "Manager", "role": "manager", "email": "mgr@example.com"})
+    return _auth_header(token)
+
+
+def test_manager_can_disable_employee_login(client):
+    with _mock_employees():
+        assert client.post("/auth/login", json={"pin": "5678"}).status_code == 200
+    response = client.put("/api/manager/employee/emp_2/login-access", json={"login_enabled": False}, headers=_manager_headers())
+    assert response.status_code == 200, response.text
+    assert response.json()["login_enabled"] is False
+    with _mock_employees():
+        blocked = client.post("/auth/login", json={"pin": "5678"})
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"] == "Your Allied Connect login has been disabled. Contact management for assistance."
+
+
+def test_disabled_employee_cannot_bypass_with_changed_timestation_pin(client, app):
+    with _mock_employees():
+        client.post("/auth/login", json={"pin": "5678"})
+    client.put("/api/manager/employee/emp_2/login-access", json={"login_enabled": False}, headers=_manager_headers())
+    changed_roster = [{**employee, "pin": "8765"} if employee["employee_id"] == "emp_2" else employee for employee in TEST_EMPLOYEES]
+    with patch("app.routers.auth.timestation.get_employees", new_callable=AsyncMock, return_value=changed_roster):
+        blocked = client.post("/auth/login", json={"pin": "8765"})
+    assert blocked.status_code == 403
+
+
+def test_manager_can_reenable_employee_login(client):
+    with _mock_employees():
+        client.post("/auth/login", json={"pin": "5678"})
+    client.put("/api/manager/employee/emp_2/login-access", json={"login_enabled": False}, headers=_manager_headers())
+    enabled = client.put("/api/manager/employee/emp_2/login-access", json={"login_enabled": True}, headers=_manager_headers())
+    assert enabled.status_code == 200
+    with _mock_employees():
+        login = client.post("/auth/login", json={"pin": "5678"})
+    assert login.status_code == 200
+
+
+def test_manager_cannot_disable_super_admin_login(client, app):
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        db.add(Employee(timestation_id="admin_1", name="Admin", pin="9999", role="super_admin", is_active=True))
+        db.commit()
+    response = client.put("/api/manager/employee/admin_1/login-access", json={"login_enabled": False}, headers=_manager_headers())
+    assert response.status_code == 403
+
+
+def test_disabled_employee_existing_token_is_rejected(app, client):
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        db.add(Employee(timestation_id="emp_disabled", name="Disabled", pin="4444", role="employee", is_active=True, login_enabled=False))
+        db.commit()
+
+    @app.get("/_test_disabled")
+    def _test_disabled(user: dict = Depends(get_current_user)):
+        return user
+
+    token = create_access_token({"sub": "emp_disabled", "name": "Disabled", "role": "employee", "email": ""})
+    response = client.get("/_test_disabled", headers=_auth_header(token))
+    assert response.status_code == 403
 
 
 # ── dependency tests ────────────────────────────────────────────────
