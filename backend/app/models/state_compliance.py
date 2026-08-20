@@ -27,6 +27,9 @@ class StateCompliance(Base):
     bond_amount = Column(Numeric(12, 2), nullable=True)
     bond_expiration = Column(Date, nullable=True)
     regulator = Column(String, nullable=True)
+    state_portal_url = Column(String, nullable=True)
+    portal_username = Column(String, nullable=True)
+    portal_password_encrypted = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     source_urls_json = Column(Text, nullable=True)
     document_paths_json = Column(Text, nullable=True)
@@ -48,6 +51,9 @@ SCHEMA_UPGRADE_COLUMNS = {
     "bond_number": "VARCHAR",
     "bond_expiration": "DATE",
     "regulator": "VARCHAR",
+    "state_portal_url": "VARCHAR",
+    "portal_username": "VARCHAR",
+    "portal_password_encrypted": "TEXT",
     "notes": "TEXT",
     "source_urls_json": "TEXT",
     "document_paths_json": "TEXT",

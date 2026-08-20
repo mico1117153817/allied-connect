@@ -149,7 +149,7 @@ def test_matrix_merge_keeps_coa_boolean_consistent(harness):
 def test_user_edits_are_not_overwritten_by_seed_data(harness):
     client, _ = harness
     updated = client.put("/api/compliance/Delaware", json={
-        "collection_license_requirement": "Not Required",
+        "collection_license_requirement": "Required",
         "license_status": "Active",
         "license_number": "MANUAL-123",
         "coa_requirement": "Required",
@@ -184,6 +184,98 @@ def test_update_rejects_removed_requirement_and_status_options(harness):
     ):
         response = client.put("/api/compliance/Alabama", json={**base, field: invalid})
         assert response.status_code == 400, (field, response.text)
+
+
+def test_expired_license_and_bond_need_review_with_issue_summary(harness):
+    client, _ = harness
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Required",
+        "license_status": "Active",
+        "license_expiration": "2020-01-01",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Required",
+        "bond_status": "Active",
+        "bond_expiration": "2021-01-01",
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["overall_status"] == "Needs Review"
+    assert row["indicator"] == "yellow"
+    assert any("License expired" in issue for issue in row["issues"])
+    assert any("Bond expired" in issue for issue in row["issues"])
+
+
+def test_not_required_items_accept_no_status_or_detail_fields(harness):
+    client, _ = harness
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["overall_status"] == "Active"
+    assert row["license_number"] is None
+    assert row["coa_number"] is None
+    assert row["bond_number"] is None
+
+
+def test_state_portal_credentials_are_stored_without_returning_password(harness):
+    client, _ = harness
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "state_portal_url": "https://alabama.gov/portal",
+        "portal_username": "allied-user",
+        "portal_password": "secret-value",
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["state_portal_url"] == "https://alabama.gov/portal"
+    assert row["portal_username"] == "allied-user"
+    assert row["has_portal_password"] is True
+    assert "portal_password" not in row
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        stored = db.query(compliance_router.StateCompliance).filter_by(state="Alabama").one()
+        assert stored.portal_password_encrypted != "secret-value"
+        assert stored.portal_password_encrypted
+
+
+def test_portal_credentials_can_be_retrieved_by_compliance_user(harness):
+    client, _ = harness
+    saved = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "portal_username": "allied-user",
+        "portal_password": "secret-value",
+        "data_confidence": "Verified",
+    })
+    assert saved.status_code == 200
+    response = client.get("/api/compliance/Alabama/portal-credentials")
+    assert response.status_code == 200
+    assert "no-store" in response.headers["cache-control"]
+    assert response.headers["pragma"] == "no-cache"
+    assert response.json() == {"username": "allied-user", "password": "secret-value"}
+
+
+def test_existing_source_url_is_migrated_even_after_manual_update(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        row = db.query(compliance_router.StateCompliance).filter_by(state="Alabama").one()
+        row.state_portal_url = None
+        row.source_urls_json = '["https://legacy.alabama.gov"]'
+        row.updated_by = "ADMIN"
+        db.commit()
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
+    assert row["state_portal_url"] == "https://legacy.alabama.gov"
 
 
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
@@ -357,9 +449,13 @@ def test_super_admin_can_update_state_compliance(harness):
     client, _ = harness
     response = client.put("/api/compliance/Alabama", json={
         "certificate_of_authority": True,
+        "collection_license_requirement": "Required",
         "license_status": "Active",
         "license_number": "AL-123",
         "license_expiration": "2027-12-31",
+        "coa_requirement": "Required",
+        "coa_status": "Active",
+        "bond_requirement": "Required",
         "bond_status": "Active",
         "bond_amount": 25000,
     })

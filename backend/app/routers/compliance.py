@@ -1,11 +1,15 @@
 from datetime import date
+import base64
+import hashlib
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from cryptography.fernet import Fernet, InvalidToken
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.database import get_db
 from app.models.state_compliance import StateCompliance
 from app.routers.auth import require_compliance_access
@@ -51,6 +55,10 @@ class ComplianceInput(BaseModel):
     bond_amount: float | None = Field(None, ge=0)
     bond_expiration: date | None = None
     regulator: str | None = None
+    state_portal_url: str | None = None
+    portal_username: str | None = None
+    portal_password: str | None = None
+    clear_portal_password: bool = False
     notes: str | None = None
     source_urls: list[str] = []
     document_paths: list[str] = []
@@ -67,6 +75,8 @@ def _seed_row(row: StateCompliance, seed: dict) -> None:
             setattr(row, field, value)
     for source_field, model_field in JSON_LIST_FIELDS.items():
         setattr(row, model_field, json.dumps(seed.get(source_field, [])))
+    if not row.state_portal_url and seed.get("source_urls"):
+        row.state_portal_url = seed["source_urls"][0]
 
 
 def _row_is_empty(row: StateCompliance) -> bool:
@@ -102,6 +112,9 @@ def _merge_matrix_seed(row: StateCompliance, seed: dict) -> bool:
     if row.coa_status in {"Active", "Perpetual"} and not row.certificate_of_authority:
         row.certificate_of_authority = True
         changed = True
+    if not row.state_portal_url and seed.get("source_urls"):
+        row.state_portal_url = seed["source_urls"][0]
+        changed = True
     paths = _loads_list(row.document_paths_json)
     if SOURCE_PATH not in paths:
         paths.append(SOURCE_PATH)
@@ -131,6 +144,11 @@ def _ensure_states(db: Session):
             changed = True
         elif row.updated_by is None and state in seeds and _merge_matrix_seed(row, seeds[state]):
             changed = True
+        if not row.state_portal_url:
+            legacy_urls = _loads_list(row.source_urls_json)
+            if legacy_urls:
+                row.state_portal_url = legacy_urls[0]
+                changed = True
     if changed:
         db.commit()
 
@@ -145,6 +163,38 @@ def _loads_list(value: str | None) -> list[str]:
         return []
 
 
+def _fernet() -> Fernet:
+    digest = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def _encrypt_password(value: str) -> str:
+    return _fernet().encrypt(value.encode("utf-8")).decode("ascii")
+
+
+def _decrypt_password(value: str) -> str:
+    try:
+        return _fernet().decrypt(value.encode("ascii")).decode("utf-8")
+    except InvalidToken as exc:
+        raise HTTPException(500, "Stored portal password cannot be decrypted; contact the system administrator") from exc
+
+
+def _expiration_issues(row: StateCompliance) -> list[str]:
+    today = date.today()
+    issues = []
+    if row.collection_license_requirement == "Required" and row.license_status == "Expired":
+        issues.append("License status is Expired")
+    if row.collection_license_requirement == "Required" and row.license_expiration and row.license_expiration < today:
+        issues.append(f"License expired on {row.license_expiration.isoformat()}")
+    if row.collection_license_requirement == "Required" and row.license_renewal_due and row.license_renewal_due < today:
+        issues.append(f"License renewal was due on {row.license_renewal_due.isoformat()}")
+    if row.bond_requirement == "Required" and row.bond_status == "Expired":
+        issues.append("Bond status is Expired")
+    if row.bond_requirement == "Required" and row.bond_expiration and row.bond_expiration < today:
+        issues.append(f"Bond expired on {row.bond_expiration.isoformat()}")
+    return issues
+
+
 def _requirement_satisfied(requirement: str, status: str, active_statuses: set[str]) -> bool | None:
     if requirement == "Not Required":
         return True
@@ -154,6 +204,8 @@ def _requirement_satisfied(requirement: str, status: str, active_statuses: set[s
 
 
 def _overall(row: StateCompliance) -> tuple[str, str]:
+    if _expiration_issues(row):
+        return "Needs Review", "yellow"
     checks = [
         _requirement_satisfied(row.collection_license_requirement, row.license_status, {"Active", "Perpetual"}),
         _requirement_satisfied(row.coa_requirement, row.coa_status, {"Active", "Perpetual"}),
@@ -188,12 +240,16 @@ def _serialize(row: StateCompliance) -> dict:
         "bond_amount": float(row.bond_amount) if row.bond_amount is not None else None,
         "bond_expiration": row.bond_expiration.isoformat() if row.bond_expiration else None,
         "regulator": row.regulator,
+        "state_portal_url": row.state_portal_url,
+        "portal_username": row.portal_username,
+        "has_portal_password": bool(row.portal_password_encrypted),
+        "issues": _expiration_issues(row),
         "notes": row.notes,
         "source_urls": _loads_list(row.source_urls_json),
         "document_paths": _loads_list(row.document_paths_json),
         "data_confidence": row.data_confidence,
-        "overall_status": overall_status if row.data_confidence != "Unverified" else "Unknown",
-        "indicator": indicator if row.data_confidence != "Unverified" else "gray",
+        "overall_status": overall_status if row.data_confidence != "Unverified" else "Needs Review",
+        "indicator": indicator if row.data_confidence != "Unverified" else "yellow",
         "updated_by": row.updated_by,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -204,6 +260,26 @@ async def list_compliance(user: dict = Depends(require_compliance_access), db: S
     _ensure_states(db)
     rows = db.query(StateCompliance).order_by(StateCompliance.state).all()
     return {"states": [_serialize(row) for row in rows]}
+
+
+@router.get("/{state}/portal-credentials")
+async def get_portal_credentials(
+    state: str,
+    response: Response,
+    user: dict = Depends(require_compliance_access),
+    db: Session = Depends(get_db),
+):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    if state not in STATES:
+        raise HTTPException(404, "State not found")
+    _ensure_states(db)
+    row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
+    return {
+        "username": row.portal_username,
+        "password": _decrypt_password(row.portal_password_encrypted) if row.portal_password_encrypted else None,
+    }
 
 
 @router.put("/{state}")
@@ -227,12 +303,36 @@ async def update_compliance(
         raise HTTPException(400, "Invalid confidence value")
     _ensure_states(db)
     row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
-    values = payload.model_dump(exclude={"source_urls", "document_paths"})
+    values = payload.model_dump(exclude={"source_urls", "document_paths", "portal_password"})
     for field, value in values.items():
         setattr(row, field, value)
+    if not row.state_portal_url and payload.source_urls:
+        row.state_portal_url = payload.source_urls[0]
+    if payload.portal_password:
+        row.portal_password_encrypted = _encrypt_password(payload.portal_password)
+    elif payload.clear_portal_password:
+        row.portal_password_encrypted = None
+    for prefix, requirement_field in (("license", "collection_license_requirement"), ("coa", "coa_requirement"), ("bond", "bond_requirement")):
+        if getattr(payload, requirement_field) == "Not Required":
+            if prefix == "license":
+                row.license_status = "Not Held"
+                row.license_number = None
+                row.license_issue_date = None
+                row.license_expiration = None
+                row.license_renewal_due = None
+            elif prefix == "coa":
+                row.coa_status = "Not Held"
+                row.coa_number = None
+                row.coa_issue_date = None
+                row.certificate_of_authority = False
+            else:
+                row.bond_status = "Not Held"
+                row.bond_number = None
+                row.bond_amount = None
+                row.bond_expiration = None
     row.source_urls_json = json.dumps(payload.source_urls)
     row.document_paths_json = json.dumps(payload.document_paths)
-    row.certificate_of_authority = payload.coa_status in {"Active", "Perpetual"}
+    row.certificate_of_authority = row.coa_requirement == "Required" and payload.coa_status == "Active"
     row.updated_by = user.get("timestation_id")
     db.commit()
     db.refresh(row)

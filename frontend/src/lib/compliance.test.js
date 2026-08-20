@@ -11,7 +11,7 @@ const rows = [
 ]
 
 test('complianceSummary counts each decision state', () => {
-  assert.deepEqual(complianceSummary(rows), { total: 4, active: 1, needsReview: 1, notAuthorized: 1, unknown: 1 })
+  assert.deepEqual(complianceSummary(rows), { total: 4, active: 1, needsReview: 2, notAuthorized: 1 })
 })
 
 test('filterComplianceRows applies status and case-insensitive search', () => {
@@ -21,17 +21,22 @@ test('filterComplianceRows applies status and case-insensitive search', () => {
 
 test('summary-card status filters select the correct category', () => {
   assert.deepEqual(filterComplianceRows(rows, 'active', '').map(row => row.state), ['Alabama'])
-  assert.deepEqual(filterComplianceRows(rows, 'needs review', '').map(row => row.state), ['Wyoming'])
+  assert.deepEqual(filterComplianceRows(rows, 'needs review', '').map(row => row.state), ['Wyoming', 'Texas'])
   assert.deepEqual(filterComplianceRows(rows, 'not authorized', '').map(row => row.state), ['New York'])
-  assert.deepEqual(filterComplianceRows(rows, 'unknown', '').map(row => row.state), ['Texas'])
+  assert.deepEqual(filterComplianceRows(rows, 'unknown', '').map(row => row.state), [])
   assert.deepEqual(filterComplianceRows(rows, 'all', '').map(row => row.state), ['Alabama', 'New York', 'Wyoming', 'Texas'])
+})
+
+test('summary and filters exclude Unknown as a separate category', () => {
+  assert.deepEqual(complianceSummary(rows), { total: 4, active: 1, needsReview: 2, notAuthorized: 1 })
+  assert.deepEqual(filterComplianceRows(rows, 'needs review', '').map(row => row.state), ['Wyoming', 'Texas'])
 })
 
 test('complianceIndicator returns explicit state compliance labels', () => {
   assert.deepEqual(complianceIndicator({ overall_status: 'Active' }), { symbol: '✓', label: 'In Compliance', tone: 'green' })
   assert.deepEqual(complianceIndicator({ overall_status: 'Not Authorized' }), { symbol: '✕', label: 'Not In Compliance', tone: 'red' })
   assert.deepEqual(complianceIndicator({ overall_status: 'Needs Review' }), { symbol: '!', label: 'Needs Review', tone: 'yellow' })
-  assert.deepEqual(complianceIndicator({ overall_status: 'Unknown' }), { symbol: '?', label: 'Unknown', tone: 'gray' })
+  assert.deepEqual(complianceIndicator({ overall_status: 'Unknown' }), { symbol: '!', label: 'Needs Review', tone: 'yellow' })
 })
 
 test('compliance editor choices are restricted to binary requirements and current statuses', () => {
