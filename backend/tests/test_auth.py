@@ -68,6 +68,12 @@ def app():
         autocommit=False, autoflush=False, bind=engine
     )
     Base.metadata.create_all(engine)
+    with TestingSessionLocal() as db:
+        db.add_all([
+            Employee(timestation_id="mgr_1", name="Manager", pin="9001", role="manager", email="mgr@example.com"),
+            Employee(timestation_id="admin_auth", name="Admin", pin="9002", role="super_admin", email="admin@example.com"),
+        ])
+        db.commit()
 
     def override_get_db():
         db = TestingSessionLocal()
@@ -185,6 +191,47 @@ def _manager_headers():
     return _auth_header(token)
 
 
+def test_manager_cannot_promote_employee_to_super_admin(client, app):
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        db.add(Employee(timestation_id="emp_target", name="Target", pin="7777", role="employee"))
+        db.commit()
+    response = client.put("/api/manager/role", json={"employee_id": "emp_target", "role": "super_admin"}, headers=_manager_headers())
+    assert response.status_code == 403
+
+
+def test_super_admin_can_promote_employee_to_super_admin(client, app):
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        db.add(Employee(timestation_id="emp_target", name="Target", pin="7777", role="employee"))
+        db.commit()
+    token = create_access_token({"sub": "admin_auth", "name": "Admin", "role": "super_admin", "email": "admin@example.com"})
+    response = client.put("/api/manager/role", json={"employee_id": "emp_target", "role": "super_admin"}, headers=_auth_header(token))
+    assert response.status_code == 200, response.text
+    assert response.json()["role"] == "super_admin"
+
+
+def test_manager_cannot_create_super_admin_local_account(client):
+    response = client.post("/api/manager/local-account", json={"name": "Bad Admin", "pin": "8888", "role": "super_admin"}, headers=_manager_headers())
+    assert response.status_code == 403
+
+
+def test_role_revocation_applies_to_existing_token(app, client):
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        db.add(Employee(timestation_id="role_user", name="Role User", pin="2222", role="employee"))
+        db.commit()
+    token = create_access_token({"sub": "role_user", "name": "Role User", "role": "super_admin", "email": ""})
+
+    @app.get("/_test_role_refresh")
+    def _test_role_refresh(user: dict = Depends(get_current_user)):
+        return user
+
+    response = client.get("/_test_role_refresh", headers=_auth_header(token))
+    assert response.status_code == 200
+    assert response.json()["role"] == "employee"
+
+
 def test_manager_can_disable_employee_login(client):
     with _mock_employees():
         assert client.post("/auth/login", json={"pin": "5678"}).status_code == 200
@@ -261,7 +308,11 @@ def test_get_current_user_missing_token(app, client):
 
 
 def test_get_current_user_valid_token(app, client):
-    """Valid Bearer token → returns user dict."""
+    """Valid Bearer token for a current DB employee returns the latest user data."""
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        db.add(Employee(timestation_id="emp_1", name="Alice", pin="1234", role="manager", email="a@b.com"))
+        db.commit()
 
     @app.get("/_test_me")
     def _me(user: dict = Depends(get_current_user)):
@@ -279,6 +330,16 @@ def test_get_current_user_valid_token(app, client):
     assert body["email"] == "a@b.com"
 
 
+def test_get_current_user_rejects_missing_db_employee(app, client):
+    @app.get("/_test_missing_user")
+    def _missing_user(user: dict = Depends(get_current_user)):
+        return user
+
+    token = create_access_token({"sub": "deleted_admin", "name": "Deleted", "role": "super_admin", "email": ""})
+    response = client.get("/_test_missing_user", headers=_auth_header(token))
+    assert response.status_code == 401
+
+
 def test_get_current_user_invalid_token(app, client):
     """Garbage token → 401."""
 
@@ -293,6 +354,12 @@ def test_get_current_user_invalid_token(app, client):
 
 def test_require_manager_allows_manager(app, client):
     """Manager role passes the require_manager gate."""
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        emp = db.query(Employee).filter_by(timestation_id="emp_1").first()
+        if not emp:
+            db.add(Employee(timestation_id="emp_1", name="Alice", pin="1234", role="manager", email="a@b.com"))
+            db.commit()
 
     @app.get("/_test_mgr")
     def _mgr(user: dict = Depends(require_manager)):
@@ -307,6 +374,12 @@ def test_require_manager_allows_manager(app, client):
 
 def test_require_manager_blocks_employee(app, client):
     """Non-manager role → 403."""
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        emp = db.query(Employee).filter_by(timestation_id="emp_2").first()
+        if not emp:
+            db.add(Employee(timestation_id="emp_2", name="Bob", pin="5678", role="employee", email="b@b.com"))
+            db.commit()
 
     @app.get("/_test_mgr")
     def _mgr(user: dict = Depends(require_manager)):

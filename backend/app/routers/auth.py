@@ -209,7 +209,13 @@ def get_current_user(
         )
 
     employee = db.query(Employee).filter(Employee.timestation_id == payload.get("sub")).first()
-    if employee and employee.login_enabled is False:
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account no longer exists",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if employee.login_enabled is False:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your Allied Connect login has been disabled. Contact management for assistance.",
@@ -217,9 +223,9 @@ def get_current_user(
 
     return {
         "timestation_id": payload.get("sub"),
-        "name": payload.get("name"),
-        "role": payload.get("role"),
-        "email": payload.get("email"),
+        "name": employee.name,
+        "role": employee.role,
+        "email": employee.email,
     }
 
 

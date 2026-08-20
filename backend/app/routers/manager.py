@@ -368,8 +368,12 @@ async def set_employee_role(
     )
     if not emp:
         raise HTTPException(404, "Employee not found")
-    if req.role not in ("employee", "manager"):
-        raise HTTPException(400, "Role must be employee or manager")
+    if req.role not in ("employee", "manager", "super_admin"):
+        raise HTTPException(400, "Role must be employee, manager, or super_admin")
+    if req.role == "super_admin" and user.get("role") != "super_admin":
+        raise HTTPException(403, "Only a super admin can grant super-admin access")
+    if emp.role == "super_admin" and req.role != "super_admin" and user.get("role") != "super_admin":
+        raise HTTPException(403, "Only a super admin can change a super-admin role")
     emp.role = req.role
     db.commit()
     return {"employee_id": emp.timestation_id, "role": emp.role}
@@ -394,6 +398,10 @@ async def create_local_account(
     """Create a local-only employee account (not synced from TimeStation).
     Used for executives like President/VP who don't clock in via TimeStation."""
     # Check PIN isn't already in use
+    if req.role not in ("employee", "manager", "super_admin"):
+        raise HTTPException(400, "Role must be employee, manager, or super_admin")
+    if req.role == "super_admin" and user.get("role") != "super_admin":
+        raise HTTPException(403, "Only a super admin can create a super-admin account")
     existing = db.query(Employee).filter(Employee.pin == req.pin).first()
     if existing:
         raise HTTPException(400, f"PIN {req.pin} is already assigned to {existing.name}")

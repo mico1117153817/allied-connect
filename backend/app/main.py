@@ -29,9 +29,9 @@ async def bootstrap_managers():
     """Sync employees from TimeStation and set up managers + local accounts on first start."""
     db = SessionLocal()
     try:
-        # Check if already bootstrapped (any managers exist)
-        existing_mgrs = db.query(Employee).filter(Employee.role == "manager").count()
-        if existing_mgrs >= 4:
+        # Check if the four configured management accounts are already bootstrapped.
+        existing_management = db.query(Employee).filter(Employee.role.in_(("manager", "super_admin"))).count()
+        if existing_management >= 4:
             return  # Already set up
 
         # Sync employees from TimeStation
@@ -73,16 +73,15 @@ async def bootstrap_managers():
             else:
                 print(f"[bootstrap] WARNING: {name} not found in TimeStation")
 
-        # Create local-only accounts
+        # Create local-only accounts without overwriting roles assigned through the portal.
         for acct in LOCAL_ACCOUNTS:
             existing = db.query(Employee).filter(
                 (Employee.name == acct["name"]) | (Employee.pin == acct["pin"])
             ).first()
             if existing:
-                existing.role = acct.get("role", "manager")
                 existing.email = acct["email"]
                 existing.title = acct["title"]
-                print(f"[bootstrap] Updated {existing.name} as {existing.role}")
+                print(f"[bootstrap] Updated profile for {existing.name}; preserved role {existing.role}")
             else:
                 local_id = f"local_{hashlib.md5(acct['name'].encode()).hexdigest()[:12]}"
                 db.add(Employee(

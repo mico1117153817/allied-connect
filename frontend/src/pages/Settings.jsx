@@ -34,6 +34,7 @@ export default function Settings() {
   const [hbForm, setHbForm] = useState({ action: 'add', type: 'back_hours', amount: '', reason: '' })
   const [hbMsg, setHbMsg] = useState('')
   const [loginAccessMsg, setLoginAccessMsg] = useState('')
+  const [roleMsg, setRoleMsg] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -82,6 +83,15 @@ export default function Settings() {
       setLoginAccessMsg(`${response.data.name}'s login is now ${response.data.login_enabled ? 'enabled' : 'disabled'}.`)
     },
     onError: (error) => setLoginAccessMsg(error.response?.data?.detail || 'Failed to update login access.'),
+  })
+
+  const roleMutation = useMutation({
+    mutationFn: ({ employeeId, role }) => api.put('/api/manager/role', { employee_id: employeeId, role }),
+    onSuccess: (response) => {
+      qc.invalidateQueries({ queryKey: ['all-employees'] })
+      setRoleMsg(`Role updated to ${response.data.role.replace('_', ' ')}.`)
+    },
+    onError: (error) => setRoleMsg(error.response?.data?.detail || 'Failed to update role.'),
   })
 
   const formatLabel = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -156,6 +166,27 @@ export default function Settings() {
         {msg && (
           <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-2 rounded-lg">
             {msg}
+          </div>
+        )}
+
+        {/* Employee Roles */}
+        {isSuperAdmin() && (
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold">Employee Roles</h2>
+            <p className="text-sm text-gray-500 mt-1 mb-4">Only super admins can grant or remove super-admin access.</p>
+            {roleMsg && <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-800">{roleMsg}</div>}
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {empData?.employees?.map(employee => (
+                <div key={employee.timestation_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border rounded-lg p-3">
+                  <div><p className="font-medium">{employee.name}</p><p className="text-xs text-gray-500">{employee.department || 'No department'}</p></div>
+                  <select value={employee.role || 'employee'} onChange={(event) => roleMutation.mutate({ employeeId: employee.timestation_id, role: event.target.value })} disabled={roleMutation.isPending} className="px-3 py-2 border rounded-lg text-sm">
+                    <option value="employee">Employee</option>
+                    <option value="manager">Manager</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
