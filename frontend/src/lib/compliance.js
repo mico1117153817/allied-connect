@@ -71,7 +71,7 @@ export function compliancePayload(row) {
     payload.bond_expiration = null
   }
   payload.certificate_of_authority = row.coa_requirement === 'Required' && row.coa_status === 'Active'
-  payload.state_portal_url = row.state_portal_url || (row.source_urls || []).map(value => value.trim()).find(Boolean) || null
+  payload.state_portal_url = row.state_portal_url || null
   payload.source_urls = (row.source_urls || []).map(value => value.trim()).filter(Boolean)
   payload.document_paths = (row.document_paths || []).map(value => value.trim()).filter(Boolean)
   return payload
