@@ -42,11 +42,11 @@ export default function Compliance() {
       </header>
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <SummaryCard label="All Jurisdictions" value={summary.total} color="blue" />
-          <SummaryCard label="Active" value={summary.active} color="green" />
-          <SummaryCard label="Needs Review" value={summary.needsReview} color="yellow" />
-          <SummaryCard label="Not Authorized" value={summary.notAuthorized} color="red" />
-          <SummaryCard label="Unknown" value={summary.unknown} color="gray" />
+          <SummaryCard label="All Jurisdictions" value={summary.total} color="blue" active={status === 'all'} onClick={() => setStatus('all')} />
+          <SummaryCard label="Active" value={summary.active} color="green" active={status === 'active'} onClick={() => setStatus('active')} />
+          <SummaryCard label="Needs Review" value={summary.needsReview} color="yellow" active={status === 'needs review'} onClick={() => setStatus('needs review')} />
+          <SummaryCard label="Not Authorized" value={summary.notAuthorized} color="red" active={status === 'not authorized'} onClick={() => setStatus('not authorized')} />
+          <SummaryCard label="Unknown" value={summary.unknown} color="gray" active={status === 'unknown'} onClick={() => setStatus('unknown')} />
         </section>
         <section className="bg-white rounded-xl shadow-sm p-5">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
@@ -56,6 +56,7 @@ export default function Compliance() {
               <select aria-label="Filter compliance status" value={status} onChange={e => setStatus(e.target.value)} className={inputClass}>
                 <option value="all">All statuses</option><option value="active">Active</option><option value="needs review">Needs Review</option><option value="not authorized">Not Authorized</option><option value="unknown">Unknown</option>
               </select>
+              {status !== 'all' && <button type="button" onClick={() => setStatus('all')} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 whitespace-nowrap">Clear filter</button>}
             </div>
           </div>
           {isLoading && <p className="text-gray-500 py-8 text-center">Loading all 50 states...</p>}
@@ -68,9 +69,9 @@ export default function Compliance() {
   )
 }
 
-function SummaryCard({ label, value, color }) {
+function SummaryCard({ label, value, color, active, onClick }) {
   const colors = { blue: 'bg-blue-50 text-blue-700', green: 'bg-green-50 text-green-700', yellow: 'bg-yellow-50 text-yellow-700', red: 'bg-red-50 text-red-700', gray: 'bg-gray-100 text-gray-700' }
-  return <div className={`rounded-xl p-4 ${colors[color]}`}><p className="text-xs opacity-75">{label}</p><p className="text-2xl font-bold">{value}</p></div>
+  return <button type="button" onClick={onClick} aria-pressed={active} aria-label={`Show ${label}: ${value}`} className={`rounded-xl p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${colors[color]} ${active ? 'ring-2 ring-offset-2 ring-blue-600 shadow-md' : ''}`}><p className="text-xs opacity-75">{label}</p><p className="text-2xl font-bold">{value}</p><p className="text-[11px] mt-1 opacity-70">Click to filter</p></button>
 }
 
 function statusClass(indicator) { return ({ green: 'bg-green-100 text-green-800', yellow: 'bg-yellow-100 text-yellow-800', red: 'bg-red-100 text-red-800', gray: 'bg-gray-100 text-gray-700' })[indicator] || 'bg-gray-100 text-gray-700' }

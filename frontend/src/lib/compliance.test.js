@@ -19,6 +19,14 @@ test('filterComplianceRows applies status and case-insensitive search', () => {
   assert.deepEqual(filterComplianceRows(rows, 'all', 'dcwp').map(row => row.state), ['New York'])
 })
 
+test('summary-card status filters select the correct category', () => {
+  assert.deepEqual(filterComplianceRows(rows, 'active', '').map(row => row.state), ['Alabama'])
+  assert.deepEqual(filterComplianceRows(rows, 'needs review', '').map(row => row.state), ['Wyoming'])
+  assert.deepEqual(filterComplianceRows(rows, 'not authorized', '').map(row => row.state), ['New York'])
+  assert.deepEqual(filterComplianceRows(rows, 'unknown', '').map(row => row.state), ['Texas'])
+  assert.deepEqual(filterComplianceRows(rows, 'all', '').map(row => row.state), ['Alabama', 'New York', 'Wyoming', 'Texas'])
+})
+
 test('complianceIndicator returns explicit state compliance labels', () => {
   assert.deepEqual(complianceIndicator({ overall_status: 'Active' }), { symbol: '✓', label: 'In Compliance', tone: 'green' })
   assert.deepEqual(complianceIndicator({ overall_status: 'Not Authorized' }), { symbol: '✕', label: 'Not In Compliance', tone: 'red' })
