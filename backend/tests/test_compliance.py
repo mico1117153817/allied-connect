@@ -152,15 +152,38 @@ def test_user_edits_are_not_overwritten_by_seed_data(harness):
         "collection_license_requirement": "Not Required",
         "license_status": "Active",
         "license_number": "MANUAL-123",
-        "coa_requirement": "Conditional",
-        "coa_status": "Perpetual",
-        "bond_requirement": "Unknown",
-        "bond_status": "Unknown",
+        "coa_requirement": "Required",
+        "coa_status": "Active",
+        "bond_requirement": "Not Required",
+        "bond_status": "Not Held",
         "data_confidence": "Verified",
     })
     assert updated.status_code == 200, updated.text
     rows = {row["state"]: row for row in client.get("/api/compliance").json()["states"]}
     assert rows["Delaware"]["license_number"] == "MANUAL-123"
+
+
+def test_update_rejects_removed_requirement_and_status_options(harness):
+    client, _ = harness
+    base = {
+        "collection_license_requirement": "Required",
+        "license_status": "Active",
+        "coa_requirement": "Required",
+        "coa_status": "Active",
+        "bond_requirement": "Required",
+        "bond_status": "Active",
+        "data_confidence": "Verified",
+    }
+    for field, invalid in (
+        ("collection_license_requirement", "Conditional"),
+        ("coa_requirement", "Unknown"),
+        ("bond_requirement", "Local Only"),
+        ("license_status", "Expired"),
+        ("coa_status", "Perpetual"),
+        ("bond_status", "Unknown"),
+    ):
+        response = client.put("/api/compliance/Alabama", json={**base, field: invalid})
+        assert response.status_code == 400, (field, response.text)
 
 
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
@@ -196,9 +219,9 @@ def test_active_indicator_requires_all_known_requirements_to_be_satisfied(harnes
         "coa_requirement": "Required",
         "coa_status": "Active",
         "coa_number": "001-164-821",
-        "license_status": "Not Required",
+        "license_status": "Not Held",
         "bond_requirement": "Not Required",
-        "bond_status": "Not Required",
+        "bond_status": "Not Held",
         "data_confidence": "Verified",
         "source_urls": ["https://example.gov/alabama"],
         "document_paths": ["Licensing/Alabama/SOSBusinessServiceDocument-20241202000017960.pdf"],
@@ -216,8 +239,8 @@ def test_missing_required_license_is_not_authorized(harness):
         "coa_requirement": "Required",
         "coa_status": "Active",
         "license_status": "Not Held",
-        "bond_requirement": "Unknown",
-        "bond_status": "Unknown",
+        "bond_requirement": "Not Required",
+        "bond_status": "Not Held",
         "data_confidence": "Verified",
     })
     assert response.status_code == 200, response.text
@@ -229,11 +252,11 @@ def test_required_items_reject_not_required_status(harness):
     client, _ = harness
     response = client.put("/api/compliance/Alabama", json={
         "collection_license_requirement": "Required",
-        "license_status": "Not Required",
+        "license_status": "Not Held",
         "coa_requirement": "Required",
-        "coa_status": "Not Required",
+        "coa_status": "Not Held",
         "bond_requirement": "Required",
-        "bond_status": "Not Required",
+        "bond_status": "Not Held",
         "data_confidence": "Verified",
     })
     assert response.status_code == 200, response.text
@@ -352,11 +375,11 @@ def test_admin_can_view_and_update_compliance(harness):
     assert client.get("/api/compliance").status_code == 200
     response = client.put("/api/compliance/Alabama", json={
         "collection_license_requirement": "Not Required",
-        "license_status": "Not Required",
+        "license_status": "Not Held",
         "coa_requirement": "Not Required",
-        "coa_status": "Not Required",
+        "coa_status": "Not Held",
         "bond_requirement": "Not Required",
-        "bond_status": "Not Required",
+        "bond_status": "Not Held",
         "data_confidence": "Verified",
     })
     assert response.status_code == 200

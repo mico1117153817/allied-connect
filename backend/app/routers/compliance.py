@@ -20,10 +20,8 @@ STATES = [
     "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
     "District of Columbia",
 ]
-REQUIREMENTS = {"Required", "Not Required", "Local Only", "Conditional", "Unknown"}
-LICENSE_STATUSES = {"Active", "Expired", "Pending", "Not Held", "Want to Get", "Not Required", "Perpetual", "Terminated", "Unknown"}
-COA_STATUSES = {"Active", "Pending", "Not Held", "Not Required", "Perpetual", "Revoked", "Terminated", "Unknown"}
-BOND_STATUSES = {"Active", "Expired", "Pending", "Not Held", "Not Required", "Unknown"}
+EDITABLE_REQUIREMENTS = {"Required", "Not Required"}
+EDITABLE_STATUSES = {"Active", "Pending", "Not Held"}
 CONFIDENCE_LEVELS = {"Verified", "High", "Medium", "Low", "Unverified"}
 SOURCE_PATH = "Licensing/Allied_Licensing_Matrix.xlsx"
 SEED_PATH = Path(__file__).resolve().parent.parent / "data" / "state_compliance_seed.json"
@@ -36,19 +34,19 @@ JSON_LIST_FIELDS = {"source_urls": "source_urls_json", "document_paths": "docume
 
 class ComplianceInput(BaseModel):
     jurisdiction: str | None = None
-    collection_license_requirement: str = "Unknown"
+    collection_license_requirement: str = "Not Required"
     license_status: str = "Not Held"
     license_number: str | None = None
     license_issue_date: date | None = None
     license_expiration: date | None = None
     license_renewal_due: date | None = None
-    coa_requirement: str = "Unknown"
-    coa_status: str = "Unknown"
+    coa_requirement: str = "Not Required"
+    coa_status: str = "Not Held"
     coa_number: str | None = None
     coa_issue_date: date | None = None
     certificate_of_authority: bool = False
-    bond_requirement: str = "Unknown"
-    bond_status: str = "Unknown"
+    bond_requirement: str = "Not Required"
+    bond_status: str = "Not Held"
     bond_number: str | None = None
     bond_amount: float | None = Field(None, ge=0)
     bond_expiration: date | None = None
@@ -217,14 +215,14 @@ async def update_compliance(
 ):
     if state not in STATES:
         raise HTTPException(404, "State not found")
-    if payload.collection_license_requirement not in REQUIREMENTS or payload.coa_requirement not in REQUIREMENTS or payload.bond_requirement not in REQUIREMENTS:
-        raise HTTPException(400, "Invalid requirement value")
-    if payload.license_status not in LICENSE_STATUSES:
-        raise HTTPException(400, "Invalid license status")
-    if payload.coa_status not in COA_STATUSES:
-        raise HTTPException(400, "Invalid COA status")
-    if payload.bond_status not in BOND_STATUSES:
-        raise HTTPException(400, "Invalid bond status")
+    if payload.collection_license_requirement not in EDITABLE_REQUIREMENTS or payload.coa_requirement not in EDITABLE_REQUIREMENTS or payload.bond_requirement not in EDITABLE_REQUIREMENTS:
+        raise HTTPException(400, "Requirement must be Required or Not Required")
+    if payload.license_status not in EDITABLE_STATUSES:
+        raise HTTPException(400, "License status must be Active, Pending, or Not Held")
+    if payload.coa_status not in EDITABLE_STATUSES:
+        raise HTTPException(400, "COA status must be Active, Pending, or Not Held")
+    if payload.bond_status not in EDITABLE_STATUSES:
+        raise HTTPException(400, "Bond status must be Active, Pending, or Not Held")
     if payload.data_confidence not in CONFIDENCE_LEVELS:
         raise HTTPException(400, "Invalid confidence value")
     _ensure_states(db)

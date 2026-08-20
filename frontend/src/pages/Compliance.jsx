@@ -2,12 +2,12 @@ import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { logout } from '../lib/auth'
-import { complianceIndicator, compliancePayload, complianceSummary, filterComplianceRows } from '../lib/compliance'
+import { COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, complianceIndicator, compliancePayload, complianceSummary, filterComplianceRows, normalizeComplianceEditor } from '../lib/compliance'
 
-const REQUIREMENTS = ['Required', 'Not Required', 'Local Only', 'Conditional', 'Unknown']
-const LICENSE_STATUSES = ['Active', 'Expired', 'Pending', 'Not Held', 'Want to Get', 'Not Required', 'Perpetual', 'Terminated', 'Unknown']
-const COA_STATUSES = ['Active', 'Pending', 'Not Held', 'Not Required', 'Perpetual', 'Revoked', 'Terminated', 'Unknown']
-const BOND_STATUSES = ['Active', 'Expired', 'Pending', 'Not Held', 'Not Required', 'Unknown']
+const REQUIREMENTS = COMPLIANCE_REQUIREMENTS
+const LICENSE_STATUSES = COMPLIANCE_STATUSES
+const COA_STATUSES = COMPLIANCE_STATUSES
+const BOND_STATUSES = COMPLIANCE_STATUSES
 const CONFIDENCE_LEVELS = ['Verified', 'High', 'Medium', 'Low', 'Unverified']
 
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
@@ -37,7 +37,7 @@ export default function Compliance() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
           <div className="flex items-center gap-3"><img src="/allied-logo.jpg" alt="Allied" className="h-10 w-auto rounded" /><div><h1 className="text-xl font-bold">Compliance Register</h1><p className="text-xs text-gray-500">State licensing, COA, and bond tracking</p></div></div>
-          <div className="flex gap-4"><a href="/manager" className="text-sm text-blue-600 hover:underline">← Manager</a><button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button></div>
+          <div className="flex gap-4"><a href="/dashboard" className="text-sm text-blue-600 hover:underline">← Dashboard</a><button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button></div>
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
@@ -50,7 +50,7 @@ export default function Compliance() {
         </section>
         <section className="bg-white rounded-xl shadow-sm p-5">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
-            <div><h2 className="text-lg font-semibold">50-State Compliance Matrix</h2><p className="text-sm text-gray-500">Super-admin access only. Select a state to edit the complete compliance record.</p></div>
+            <div><h2 className="text-lg font-semibold">50-State Compliance Matrix</h2><p className="text-sm text-gray-500">Compliance admin and super-admin access. Select a state to edit the complete compliance record.</p></div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input aria-label="Search compliance states" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search state, regulator, number..." className={`${inputClass} sm:w-64`} />
               <select aria-label="Filter compliance status" value={status} onChange={e => setStatus(e.target.value)} className={inputClass}>
@@ -86,9 +86,9 @@ function ComplianceRow({ row, onEdit }) {
 }
 
 function Field({ label, children }) { return <label className="block"><span className="block text-xs font-medium text-gray-600 mb-1">{label}</span>{children}</label> }
-function SelectField({ label, value, options, onChange }) { return <Field label={label}><select value={value || ''} onChange={e => onChange(e.target.value)} className={inputClass}>{options.map(option => <option key={option}>{option}</option>)}</select></Field> }
+function SelectField({ label, value, options, onChange }) { return <Field label={label}><select required value={value || ''} onChange={e => onChange(e.target.value)} className={inputClass}><option value="" disabled>Select...</option>{options.map(option => <option key={option}>{option}</option>)}</select></Field> }
 function ComplianceEditor({ row, onClose, onSave, saving, error }) {
-  const [form, setForm] = React.useState({ ...row, source_urls_text: (row.source_urls || []).join('\n'), document_paths_text: (row.document_paths || []).join('\n') })
+  const [form, setForm] = React.useState({ ...normalizeComplianceEditor(row), source_urls_text: (row.source_urls || []).join('\n'), document_paths_text: (row.document_paths || []).join('\n') })
   const update = (field, value) => setForm(current => ({ ...current, [field]: value }))
   const submit = e => { e.preventDefault(); onSave(compliancePayload({ ...form, source_urls: form.source_urls_text.split('\n'), document_paths: form.document_paths_text.split('\n') })) }
   return <div className="fixed inset-0 z-50 bg-black/50 overflow-y-auto p-4" onClick={onClose}><form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl max-w-5xl mx-auto my-6 p-6 space-y-6"><div className="flex justify-between items-start"><div><h2 className="text-xl font-bold">Edit {row.state}</h2><p className="text-sm text-gray-500">{form.jurisdiction || row.state}</p></div><button type="button" onClick={onClose} className="text-gray-500 text-xl" aria-label="Close">✕</button></div>

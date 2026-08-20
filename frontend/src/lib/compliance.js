@@ -1,3 +1,6 @@
+export const COMPLIANCE_REQUIREMENTS = ['Required', 'Not Required']
+export const COMPLIANCE_STATUSES = ['Active', 'Pending', 'Not Held']
+
 const EDITABLE_FIELDS = [
   'jurisdiction', 'collection_license_requirement', 'license_status', 'license_number',
   'license_issue_date', 'license_expiration', 'license_renewal_due', 'coa_requirement',
@@ -32,6 +35,17 @@ export function complianceIndicator(row) {
   if (row.overall_status === 'Not Authorized') return { symbol: '✕', label: 'Not In Compliance', tone: 'red' }
   if (row.overall_status === 'Needs Review') return { symbol: '!', label: 'Needs Review', tone: 'yellow' }
   return { symbol: '?', label: 'Unknown', tone: 'gray' }
+}
+
+export function normalizeComplianceEditor(row) {
+  const normalized = { ...row }
+  for (const field of ['collection_license_requirement', 'coa_requirement', 'bond_requirement']) {
+    if (!COMPLIANCE_REQUIREMENTS.includes(normalized[field])) normalized[field] = ''
+  }
+  for (const field of ['license_status', 'coa_status', 'bond_status']) {
+    if (!COMPLIANCE_STATUSES.includes(normalized[field])) normalized[field] = ''
+  }
+  return normalized
 }
 
 export function compliancePayload(row) {

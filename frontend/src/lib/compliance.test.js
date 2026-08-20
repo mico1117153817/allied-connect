@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
@@ -24,6 +24,24 @@ test('complianceIndicator returns explicit state compliance labels', () => {
   assert.deepEqual(complianceIndicator({ overall_status: 'Not Authorized' }), { symbol: '✕', label: 'Not In Compliance', tone: 'red' })
   assert.deepEqual(complianceIndicator({ overall_status: 'Needs Review' }), { symbol: '!', label: 'Needs Review', tone: 'yellow' })
   assert.deepEqual(complianceIndicator({ overall_status: 'Unknown' }), { symbol: '?', label: 'Unknown', tone: 'gray' })
+})
+
+test('compliance editor choices are restricted to binary requirements and current statuses', () => {
+  assert.deepEqual(COMPLIANCE_REQUIREMENTS, ['Required', 'Not Required'])
+  assert.deepEqual(COMPLIANCE_STATUSES, ['Active', 'Pending', 'Not Held'])
+})
+
+test('legacy values require an explicit supported selection before save', () => {
+  const normalized = normalizeComplianceEditor({
+    collection_license_requirement: 'Conditional', coa_requirement: 'Unknown', bond_requirement: 'Local Only',
+    license_status: 'Perpetual', coa_status: 'Revoked', bond_status: 'Unknown',
+  })
+  assert.equal(normalized.collection_license_requirement, '')
+  assert.equal(normalized.coa_requirement, '')
+  assert.equal(normalized.bond_requirement, '')
+  assert.equal(normalized.license_status, '')
+  assert.equal(normalized.coa_status, '')
+  assert.equal(normalized.bond_status, '')
 })
 
 test('compliancePayload strips computed audit fields and normalizes editable values', () => {
