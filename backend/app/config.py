@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     # Auth
     SECRET_KEY: str = "changeme-generate-a-real-secret"
+    COMPLIANCE_CREDENTIAL_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
 
     # Database

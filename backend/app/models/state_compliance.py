@@ -30,6 +30,7 @@ class StateCompliance(Base):
     state_portal_url = Column(String, nullable=True)
     portal_username = Column(String, nullable=True)
     portal_password_encrypted = Column(Text, nullable=True)
+    state_portal_url_migrated = Column(Boolean, nullable=False, default=False)
     notes = Column(Text, nullable=True)
     source_urls_json = Column(Text, nullable=True)
     document_paths_json = Column(Text, nullable=True)
@@ -54,6 +55,7 @@ SCHEMA_UPGRADE_COLUMNS = {
     "state_portal_url": "VARCHAR",
     "portal_username": "VARCHAR",
     "portal_password_encrypted": "TEXT",
+    "state_portal_url_migrated": "BOOLEAN NOT NULL DEFAULT FALSE",
     "notes": "TEXT",
     "source_urls_json": "TEXT",
     "document_paths_json": "TEXT",

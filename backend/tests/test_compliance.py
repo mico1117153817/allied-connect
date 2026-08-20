@@ -271,11 +271,67 @@ def test_existing_source_url_is_migrated_even_after_manual_update(harness):
     with next(dependency()) as db:
         row = db.query(compliance_router.StateCompliance).filter_by(state="Alabama").one()
         row.state_portal_url = None
+        row.state_portal_url_migrated = False
         row.source_urls_json = '["https://legacy.alabama.gov"]'
         row.updated_by = "ADMIN"
         db.commit()
     row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
     assert row["state_portal_url"] == "https://legacy.alabama.gov"
+
+
+def test_state_portal_url_can_be_explicitly_cleared_after_migration(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "state_portal_url": None,
+        "source_urls": ["https://legacy.alabama.gov"],
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 200
+    assert response.json()["state_portal_url"] is None
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
+    assert row["state_portal_url"] is None
+
+
+def test_explicit_password_removal_wins_over_autofilled_password(harness):
+    client, _ = harness
+    saved = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "portal_password": "initial-secret",
+        "data_confidence": "Verified",
+    })
+    assert saved.status_code == 200
+    removed = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "portal_password": "autofilled-secret",
+        "clear_portal_password": True,
+        "data_confidence": "Verified",
+    })
+    assert removed.status_code == 200
+    credentials = client.get("/api/compliance/Alabama/portal-credentials")
+    assert credentials.json()["password"] is None
+
+
+def test_legacy_secret_encrypted_password_remains_retrievable(harness, monkeypatch):
+    client, _ = harness
+    legacy = compliance_router._legacy_fernet().encrypt(b"legacy-secret").decode("ascii")
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        row = db.query(compliance_router.StateCompliance).filter_by(state="Alabama").one()
+        row.portal_username = "legacy-user"
+        row.portal_password_encrypted = legacy
+        db.commit()
+    response = client.get("/api/compliance/Alabama/portal-credentials")
+    assert response.status_code == 200
+    assert response.json()["password"] == "legacy-secret"
 
 
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):

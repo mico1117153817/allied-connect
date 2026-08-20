@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.database import get_db
+from app.models.setting import Setting
 from app.models.state_compliance import StateCompliance
 from app.routers.auth import require_compliance_access
 
@@ -144,11 +145,12 @@ def _ensure_states(db: Session):
             changed = True
         elif row.updated_by is None and state in seeds and _merge_matrix_seed(row, seeds[state]):
             changed = True
-        if not row.state_portal_url:
+        if not row.state_portal_url_migrated:
             legacy_urls = _loads_list(row.source_urls_json)
-            if legacy_urls:
+            if not row.state_portal_url and legacy_urls:
                 row.state_portal_url = legacy_urls[0]
-                changed = True
+            row.state_portal_url_migrated = True
+            changed = True
     if changed:
         db.commit()
 
@@ -163,20 +165,47 @@ def _loads_list(value: str | None) -> list[str]:
         return []
 
 
-def _fernet() -> Fernet:
+def _credential_key(db: Session) -> bytes:
+    if settings.COMPLIANCE_CREDENTIAL_KEY:
+        raw = settings.COMPLIANCE_CREDENTIAL_KEY
+    else:
+        row = db.query(Setting).filter(Setting.key == "compliance_credential_key").first()
+        if not row:
+            raw = Fernet.generate_key().decode("ascii")
+            row = Setting(key="compliance_credential_key", value=raw, description="Persistent encryption key for compliance portal credentials")
+            db.add(row)
+            db.commit()
+        else:
+            raw = row.value
+    try:
+        Fernet(raw.encode("ascii"))
+        return raw.encode("ascii")
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(500, "Compliance credential encryption key is invalid") from exc
+
+
+def _fernet(db: Session) -> Fernet:
+    return Fernet(_credential_key(db))
+
+
+def _encrypt_password(db: Session, value: str) -> str:
+    return _fernet(db).encrypt(value.encode("utf-8")).decode("ascii")
+
+
+def _legacy_fernet() -> Fernet:
     digest = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
     return Fernet(base64.urlsafe_b64encode(digest))
 
 
-def _encrypt_password(value: str) -> str:
-    return _fernet().encrypt(value.encode("utf-8")).decode("ascii")
-
-
-def _decrypt_password(value: str) -> str:
+def _decrypt_password(db: Session, value: str) -> str:
     try:
-        return _fernet().decrypt(value.encode("ascii")).decode("utf-8")
-    except InvalidToken as exc:
-        raise HTTPException(500, "Stored portal password cannot be decrypted; contact the system administrator") from exc
+        return _fernet(db).decrypt(value.encode("ascii")).decode("utf-8")
+    except InvalidToken:
+        try:
+            plaintext = _legacy_fernet().decrypt(value.encode("ascii")).decode("utf-8")
+        except InvalidToken as exc:
+            raise HTTPException(500, "Stored portal password cannot be decrypted; contact the system administrator") from exc
+        return plaintext
 
 
 def _expiration_issues(row: StateCompliance) -> list[str]:
@@ -278,7 +307,7 @@ async def get_portal_credentials(
     row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
     return {
         "username": row.portal_username,
-        "password": _decrypt_password(row.portal_password_encrypted) if row.portal_password_encrypted else None,
+        "password": _decrypt_password(db, row.portal_password_encrypted) if row.portal_password_encrypted else None,
     }
 
 
@@ -306,12 +335,11 @@ async def update_compliance(
     values = payload.model_dump(exclude={"source_urls", "document_paths", "portal_password"})
     for field, value in values.items():
         setattr(row, field, value)
-    if not row.state_portal_url and payload.source_urls:
-        row.state_portal_url = payload.source_urls[0]
-    if payload.portal_password:
-        row.portal_password_encrypted = _encrypt_password(payload.portal_password)
-    elif payload.clear_portal_password:
+    row.state_portal_url_migrated = True
+    if payload.clear_portal_password:
         row.portal_password_encrypted = None
+    elif payload.portal_password:
+        row.portal_password_encrypted = _encrypt_password(db, payload.portal_password)
     for prefix, requirement_field in (("license", "collection_license_requirement"), ("coa", "coa_requirement"), ("bond", "bond_requirement")):
         if getattr(payload, requirement_field) == "Not Required":
             if prefix == "license":
