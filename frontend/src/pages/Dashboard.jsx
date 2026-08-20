@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { formatCalendarDate } from '../lib/calendar'
-import { getEmployee, logout, isManager } from '../lib/auth'
+import { getEmployee, logout, isManager, canAccessCompliance } from '../lib/auth'
 
 export default function Dashboard() {
   const employee = getEmployee()
@@ -142,6 +142,9 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{viewingEmployee ? selectedEmployee?.name : employee?.name}</span>
+            {canAccessCompliance() && (
+              <a href="/compliance" className="text-sm text-blue-600 hover:underline">Compliance</a>
+            )}
             {isManager() && (
               <a href="/manager" className="text-sm text-blue-600 hover:underline">Manager View</a>
             )}

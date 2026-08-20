@@ -181,7 +181,8 @@ export default function Settings() {
                   <div><p className="font-medium">{employee.name}</p><p className="text-xs text-gray-500">{employee.department || 'No department'}</p></div>
                   <select value={employee.role || 'employee'} onChange={(event) => roleMutation.mutate({ employeeId: employee.timestation_id, role: event.target.value })} disabled={roleMutation.isPending} className="px-3 py-2 border rounded-lg text-sm">
                     <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
+                    <option value="manager">Management</option>
+                    <option value="admin">Admin (Employee + Compliance)</option>
                     <option value="super_admin">Super Admin</option>
                   </select>
                 </div>

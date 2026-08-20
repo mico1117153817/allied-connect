@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.models.state_compliance import StateCompliance
-from app.routers.auth import require_super_admin
+from app.routers.auth import require_compliance_access
 
 router = APIRouter(prefix="/api/compliance", tags=["compliance"])
 
@@ -202,7 +202,7 @@ def _serialize(row: StateCompliance) -> dict:
 
 
 @router.get("")
-async def list_compliance(user: dict = Depends(require_super_admin), db: Session = Depends(get_db)):
+async def list_compliance(user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
     _ensure_states(db)
     rows = db.query(StateCompliance).order_by(StateCompliance.state).all()
     return {"states": [_serialize(row) for row in rows]}
@@ -212,7 +212,7 @@ async def list_compliance(user: dict = Depends(require_super_admin), db: Session
 async def update_compliance(
     state: str,
     payload: ComplianceInput,
-    user: dict = Depends(require_super_admin),
+    user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
 ):
     if state not in STATES:

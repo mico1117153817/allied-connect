@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { isLoggedIn, isManager, isSuperAdmin } from './lib/auth'
+import { isLoggedIn, isManager, isSuperAdmin, canAccessCompliance } from './lib/auth'
 import { api } from './lib/api'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -13,7 +13,7 @@ import MyInfo from './pages/MyInfo'
 import EmployeeDirectory from './pages/EmployeeDirectory'
 import Compliance from './pages/Compliance'
 
-function ProtectedRoute({ children, managerOnly = false, superAdminOnly = false }) {
+function ProtectedRoute({ children, managerOnly = false, superAdminOnly = false, complianceOnly = false }) {
   const location = useLocation()
   const loggedIn = isLoggedIn()
   const { data: profileStatus, isLoading: profileLoading } = useQuery({
@@ -33,6 +33,7 @@ function ProtectedRoute({ children, managerOnly = false, superAdminOnly = false 
   if (!profileStatus?.is_complete && location.pathname !== '/my-info') return <Navigate to="/my-info" replace />
   if (managerOnly && !isManager()) return <Navigate to="/dashboard" replace />
   if (superAdminOnly && !isSuperAdmin()) return <Navigate to="/dashboard" replace />
+  if (complianceOnly && !canAccessCompliance()) return <Navigate to="/dashboard" replace />
   if (documentsLoading && profileStatus?.is_complete) return <div className="min-h-screen flex items-center justify-center text-gray-500">Checking documents...</div>
   if (documentStatus?.has_blocking_documents && location.pathname !== '/documents') return <Navigate to="/documents" replace />
   return <>{children}</>
@@ -50,7 +51,7 @@ export default function App() {
       <Route path="/manage-documents" element={<ProtectedRoute managerOnly><ManageDocuments /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute managerOnly><Settings /></ProtectedRoute>} />
       <Route path="/directory" element={<ProtectedRoute><EmployeeDirectory /></ProtectedRoute>} />
-      <Route path="/compliance" element={<ProtectedRoute superAdminOnly><Compliance /></ProtectedRoute>} />
+      <Route path="/compliance" element={<ProtectedRoute complianceOnly><Compliance /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )

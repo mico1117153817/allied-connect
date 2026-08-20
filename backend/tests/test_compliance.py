@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.models.database import Base, get_db
 from app.models.employee import Employee
 from app.models.state_compliance import ensure_state_compliance_schema
-from app.routers.auth import get_current_user, require_super_admin
+from app.routers.auth import get_current_user, require_compliance_access
 from app.routers import compliance as compliance_router
 
 
@@ -31,11 +31,11 @@ def harness():
         with Session() as db:
             yield db
     app.dependency_overrides[get_db] = override_db
-    def override_super_admin():
-        if current["user"].get("role") != "super_admin":
-            raise HTTPException(403, "Super admin access required")
+    def override_compliance_access():
+        if current["user"].get("role") not in ("admin", "super_admin"):
+            raise HTTPException(403, "Compliance access required")
         return current["user"]
-    app.dependency_overrides[require_super_admin] = override_super_admin
+    app.dependency_overrides[require_compliance_access] = override_compliance_access
     return TestClient(app), current
 
 
@@ -344,6 +344,22 @@ def test_super_admin_can_update_state_compliance(harness):
     row = response.json()
     assert row["license_number"] == "AL-123"
     assert row["bond_amount"] == 25000
+
+
+def test_admin_can_view_and_update_compliance(harness):
+    client, current = harness
+    current["user"] = {"timestation_id": "ADMIN_ROLE", "name": "Compliance Admin", "role": "admin"}
+    assert client.get("/api/compliance").status_code == 200
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "license_status": "Not Required",
+        "coa_requirement": "Not Required",
+        "coa_status": "Not Required",
+        "bond_requirement": "Not Required",
+        "bond_status": "Not Required",
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 200
 
 
 def test_manager_is_forbidden_from_compliance(harness):

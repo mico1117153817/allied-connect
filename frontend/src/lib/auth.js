@@ -22,6 +22,11 @@ export function isManager() {
   return emp?.role === 'manager' || emp?.role === 'super_admin'
 }
 
+export function canAccessCompliance() {
+  const emp = getEmployee()
+  return emp?.role === 'admin' || emp?.role === 'super_admin'
+}
+
 export function isSuperAdmin() {
   const emp = getEmployee()
   return emp?.role === 'super_admin'

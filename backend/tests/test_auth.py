@@ -232,6 +232,17 @@ def test_role_revocation_applies_to_existing_token(app, client):
     assert response.json()["role"] == "employee"
 
 
+def test_super_admin_can_assign_admin_role(client, app):
+    dependency = app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        db.add(Employee(timestation_id="admin_target", name="Admin Target", pin="7766", role="employee"))
+        db.commit()
+    token = create_access_token({"sub": "admin_auth", "name": "Admin", "role": "super_admin", "email": "admin@example.com"})
+    response = client.put("/api/manager/role", json={"employee_id": "admin_target", "role": "admin"}, headers=_auth_header(token))
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+
+
 def test_manager_can_disable_employee_login(client):
     with _mock_employees():
         assert client.post("/auth/login", json={"pin": "5678"}).status_code == 200

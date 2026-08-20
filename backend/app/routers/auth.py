@@ -239,6 +239,16 @@ def require_manager(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+def require_compliance_access(user: dict = Depends(get_current_user)) -> dict:
+    """Allow compliance administrators and super admins into the compliance register."""
+    if user.get("role") not in ("admin", "super_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Compliance access required",
+        )
+    return user
+
+
 def require_super_admin(user: dict = Depends(get_current_user)) -> dict:
     """Dependency that ensures the current user has the ``super_admin`` role."""
     if user.get("role") != "super_admin":
