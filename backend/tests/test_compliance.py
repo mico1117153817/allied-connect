@@ -334,6 +334,56 @@ def test_legacy_secret_encrypted_password_remains_retrievable(harness, monkeypat
     assert response.json()["password"] == "legacy-secret"
 
 
+def test_compliance_attachments_filter_by_item_type_and_preserve_pdf_metadata(harness):
+    client, current = harness
+    response = client.get("/api/compliance/Alabama/attachments?item_type=license")
+    assert response.status_code == 200
+    assert response.json()["attachments"] == []
+
+    upload = client.post(
+        "/api/compliance/Alabama/attachments",
+        files={"file": ("license.pdf", b"%PDF-1.4 fake pdf", "application/pdf")},
+        data={"item_type": "license"},
+    )
+    assert upload.status_code == 201, upload.text
+    attachment = upload.json()["attachment"]
+    assert attachment["item_type"] == "license"
+    assert attachment["filename"] == "license.pdf"
+    assert attachment["content_type"] == "application/pdf"
+
+    assert client.get("/api/compliance/Alabama/attachments?item_type=license").json()["attachments"]
+    assert client.get("/api/compliance/Alabama/attachments?item_type=bond").json()["attachments"] == []
+
+
+def test_compliance_attachment_rejects_non_pdf_and_invalid_item_type(harness):
+    client, _ = harness
+    for item_type in ("other", "", "license/bond"):
+        response = client.post(
+            "/api/compliance/Alabama/attachments",
+            files={"file": ("document.pdf", b"%PDF-1.4 fake pdf", "application/pdf")},
+            data={"item_type": item_type},
+        )
+        assert response.status_code == 400
+
+    response = client.post(
+        "/api/compliance/Alabama/attachments",
+        files={"file": ("document.txt", b"not pdf", "text/plain")},
+        data={"item_type": "license"},
+    )
+    assert response.status_code == 400
+
+
+def test_compliance_attachments_are_returned_in_state_register(harness):
+    client, _ = harness
+    upload = client.post(
+        "/api/compliance/Alabama/attachments",
+        files={"file": ("coa.pdf", b"%PDF-1.4 fake pdf", "application/pdf")},
+        data={"item_type": "certificate_of_authority"},
+    )
+    assert upload.status_code == 201
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
+    assert row["attachments"]["certificate_of_authority"][0]["filename"] == "coa.pdf"
+
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
     client, _ = harness
     response = client.get("/api/compliance")

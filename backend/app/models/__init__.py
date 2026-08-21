@@ -11,6 +11,7 @@ from app.models.document_signature import DocumentContent, DocumentSignature
 from app.models.document_assignment import DocumentAssignment
 from app.models.document_recipient_template import DocumentRecipientTemplate
 from app.models.setting import Setting
+from app.models.compliance_attachment import ComplianceAttachment
 from app.models.state_compliance import StateCompliance
 
 __all__ = [
@@ -19,5 +20,5 @@ __all__ = [
     "PayAdjustment", "PayPeriod", "HourBalance", "HourTransaction",
     "Document", "DocumentContent", "DocumentSignature", "DocumentAssignment",
     "DocumentRecipientTemplate", "Setting",
-    "StateCompliance",
+    "ComplianceAttachment",
 ]

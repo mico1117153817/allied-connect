@@ -1,3 +1,9 @@
+export const COMPLIANCE_ATTACHMENT_TYPES = [
+  { value: 'license', label: 'Licenses' },
+  { value: 'certificate_of_authority', label: 'Certificate of Authority' },
+  { value: 'bond', label: 'Bonds' },
+]
+
 export const COMPLIANCE_REQUIREMENTS = ['Required', 'Not Required']
 export const COMPLIANCE_STATUSES = ['Active', 'Pending', 'Not Held']
 

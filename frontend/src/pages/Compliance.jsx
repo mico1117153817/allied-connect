@@ -2,7 +2,7 @@ import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { logout } from '../lib/auth'
-import { COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, complianceIndicator, compliancePayload, complianceSummary, filterComplianceRows, normalizeComplianceEditor } from '../lib/compliance'
+import { COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, complianceIndicator, compliancePayload, complianceSummary, filterComplianceRows, normalizeComplianceEditor } from '../lib/compliance'
 
 const REQUIREMENTS = COMPLIANCE_REQUIREMENTS
 const LICENSE_STATUSES = COMPLIANCE_STATUSES
@@ -17,6 +17,7 @@ export default function Compliance() {
   const [status, setStatus] = React.useState('all')
   const [search, setSearch] = React.useState('')
   const [selected, setSelected] = React.useState(null)
+  const [selectedAttachmentType, setSelectedAttachmentType] = React.useState('all')
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['compliance'],
     queryFn: () => api.get('/api/compliance').then(r => r.data),
@@ -28,9 +29,14 @@ export default function Compliance() {
       setSelected(null)
     },
   })
+  React.useEffect(() => {
+    const refresh = () => qc.invalidateQueries({ queryKey: ['compliance'] })
+    window.addEventListener('compliance-attachments-updated', refresh)
+    return () => window.removeEventListener('compliance-attachments-updated', refresh)
+  }, [qc])
   const rows = data?.states || []
   const summary = complianceSummary(rows)
-  const visibleRows = filterComplianceRows(rows, status, search)
+  const visibleRows = filterComplianceRows(rows, status, search).filter(row => selectedAttachmentType === 'all' || row.attachments?.[selectedAttachmentType]?.length > 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,8 +58,15 @@ export default function Compliance() {
             <div><h2 className="text-lg font-semibold">50-State Compliance Matrix</h2><p className="text-sm text-gray-500">Compliance admin and super-admin access. Select a state to edit the complete compliance record.</p></div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input aria-label="Search compliance states" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search state, regulator, number..." className={`${inputClass} sm:w-64`} />
+              <select aria-label="Filter compliance document type" value={selectedAttachmentType} onChange={e => setSelectedAttachmentType(e.target.value)} className={inputClass}>
+                <option value="all">All document types</option>
+                {COMPLIANCE_ATTACHMENT_TYPES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
               <select aria-label="Filter compliance status" value={status} onChange={e => setStatus(e.target.value)} className={inputClass}>
-                <option value="all">All statuses</option><option value="active">Active</option><option value="needs review">Needs Review</option><option value="not authorized">Not Authorized</option>
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="needs review">Needs Review</option>
+                <option value="not authorized">Not Authorized</option>
               </select>
               {status !== 'all' && <button type="button" onClick={() => setStatus('all')} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 whitespace-nowrap">Clear filter</button>}
             </div>
@@ -74,6 +87,17 @@ function SummaryCard({ label, value, color, active, onClick }) {
 }
 
 function statusClass(indicator) { return ({ green: 'bg-green-100 text-green-800', yellow: 'bg-yellow-100 text-yellow-800', red: 'bg-red-100 text-red-800', gray: 'bg-gray-100 text-gray-700' })[indicator] || 'bg-gray-100 text-gray-700' }
+function AttachmentLinks({ attachments = [] }) {
+  const openAttachment = async (attachment) => {
+    const response = await api.get(attachment.view_url, { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+    window.open(url, '_blank', 'noopener,noreferrer')
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+  if (!attachments.length) return null
+  return <div className="mt-1 flex flex-wrap gap-1">{attachments.map(attachment => <button type="button" key={attachment.id} onClick={() => openAttachment(attachment)} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline" title={`View ${attachment.label} PDF`}>PDF ↗</button>)}</div>
+}
+
 function ComplianceRow({ row, onEdit }) {
   const marker = complianceIndicator(row)
   const markerStyles = {
@@ -82,7 +106,7 @@ function ComplianceRow({ row, onEdit }) {
     yellow: 'bg-yellow-400 text-yellow-950 ring-yellow-200',
     gray: 'bg-gray-500 text-white ring-gray-200',
   }
-  return <tr className="border-b hover:bg-blue-50"><td className="p-3"><div className="flex items-center gap-3"><span title={marker.label} aria-label={`${row.state}: ${marker.label}`} className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black ring-4 ${markerStyles[marker.tone]}`}>{marker.symbol}</span><div><div className="font-semibold">{row.state}</div><div className={`text-xs font-medium ${marker.tone === 'green' ? 'text-green-700' : marker.tone === 'red' ? 'text-red-700' : marker.tone === 'yellow' ? 'text-yellow-700' : 'text-gray-600'}`}>{marker.label}</div></div></div></td><td className="p-3"><span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${statusClass(row.indicator)}`}>{row.overall_status === 'Unknown' ? 'Needs Review' : row.overall_status}</span></td><td className="p-3">{row.data_confidence}</td><td className="p-3"><div>{row.collection_license_requirement === 'Not Required' ? 'Not Required' : row.license_status}</div><div className="text-xs text-gray-500">{row.collection_license_requirement === 'Not Required' ? 'No license details required' : `${row.license_number || 'No number'}${row.license_expiration ? ` · exp ${row.license_expiration}` : ''}`}</div></td><td className="p-3"><div>{row.coa_requirement}</div><div className="text-xs text-gray-500">{row.coa_requirement === 'Not Required' ? 'No COA details required' : `${row.coa_status}${row.coa_number ? ` · ${row.coa_number}` : ''}`}</div></td><td className="p-3"><div>{row.bond_requirement}</div><div className="text-xs text-gray-500">{row.bond_requirement === 'Not Required' ? 'No bond details required' : `${row.bond_status}${row.bond_amount != null ? ` · $${Number(row.bond_amount).toLocaleString()}` : ''}`}</div></td><td className="p-3">{row.state_portal_url ? <a href={row.state_portal_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open portal ↗</a> : '—'}</td><td className="p-3">{row.issues?.length ? <ul className="text-xs text-yellow-800 list-disc pl-4">{row.issues.map(issue => <li key={issue}>{issue}</li>)}</ul> : '—'}</td><td className="p-3"><button onClick={onEdit} className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Edit</button></td></tr>
+  return <tr className="border-b hover:bg-blue-50"><td className="p-3"><div className="flex items-center gap-3"><span title={marker.label} aria-label={`${row.state}: ${marker.label}`} className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black ring-4 ${markerStyles[marker.tone]}`}>{marker.symbol}</span><div><div className="font-semibold">{row.state}</div><div className={`text-xs font-medium ${marker.tone === 'green' ? 'text-green-700' : marker.tone === 'red' ? 'text-red-700' : marker.tone === 'yellow' ? 'text-yellow-700' : 'text-gray-600'}`}>{marker.label}</div></div></div></td><td className="p-3"><span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${statusClass(row.indicator)}`}>{row.overall_status === 'Unknown' ? 'Needs Review' : row.overall_status}</span></td><td className="p-3">{row.data_confidence}</td><td className="p-3"><div>{row.collection_license_requirement === 'Not Required' ? 'Not Required' : row.license_status}</div><div className="text-xs text-gray-500">{row.collection_license_requirement === 'Not Required' ? 'No license details required' : `${row.license_number || 'No number'}${row.license_expiration ? ` · exp ${row.license_expiration}` : ''}`}</div><AttachmentLinks attachments={row.attachments?.license} /></td><td className="p-3"><div>{row.coa_requirement}</div><div className="text-xs text-gray-500">{row.coa_requirement === 'Not Required' ? 'No COA details required' : `${row.coa_status}${row.coa_number ? ` · ${row.coa_number}` : ''}`}</div><AttachmentLinks attachments={row.attachments?.certificate_of_authority} /></td><td className="p-3"><div>{row.bond_requirement}</div><div className="text-xs text-gray-500">{row.bond_requirement === 'Not Required' ? 'No bond details required' : `${row.bond_status}${row.bond_amount != null ? ` · $${Number(row.bond_amount).toLocaleString()}` : ''}`}</div><AttachmentLinks attachments={row.attachments?.bond} /></td><td className="p-3">{row.state_portal_url ? <a href={row.state_portal_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open portal ↗</a> : '—'}</td><td className="p-3">{row.issues?.length ? <ul className="list-disc pl-4 text-xs text-yellow-800">{row.issues.map(issue => <li key={issue}>{issue}</li>)}</ul> : '—'}</td><td className="p-3"><button type="button" onClick={onEdit} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700">Edit</button></td></tr>
 }
 
 function Field({ label, children }) { return <label className="block"><span className="block text-xs font-medium text-gray-600 mb-1">{label}</span>{children}</label> }
@@ -91,7 +115,25 @@ function ComplianceEditor({ row, onClose, onSave, saving, error }) {
   const [form, setForm] = React.useState({ ...normalizeComplianceEditor(row), portal_password: '', clear_portal_password: false, source_urls_text: (row.source_urls || []).join('\n'), document_paths_text: (row.document_paths || []).join('\n') })
   const [credentialMessage, setCredentialMessage] = React.useState('')
   const [showPassword, setShowPassword] = React.useState(false)
+  const [uploadItemType, setUploadItemType] = React.useState('license')
+  const [uploadFile, setUploadFile] = React.useState(null)
+  const [uploadMessage, setUploadMessage] = React.useState('')
   const update = (field, value) => setForm(current => ({ ...current, [field]: value }))
+  const uploadAttachment = async () => {
+    if (!uploadFile) return
+    const body = new FormData()
+    body.append('item_type', uploadItemType)
+    body.append('file', uploadFile)
+    try {
+      await api.post(`/api/compliance/${encodeURIComponent(row.state)}/attachments`, body)
+      setUploadFile(null)
+      setUploadMessage(`${uploadItemType === 'license' ? 'License' : uploadItemType === 'bond' ? 'Bond' : 'Certificate of Authority'} PDF uploaded.`)
+      document.getElementById('compliance-pdf-upload').value = ''
+      window.dispatchEvent(new CustomEvent('compliance-attachments-updated'))
+    } catch (err) {
+      setUploadMessage(err.response?.data?.detail || 'Unable to upload PDF.')
+    }
+  }
   const loadCredentials = async () => {
     try {
       const response = await api.get(`/api/compliance/${encodeURIComponent(row.state)}/portal-credentials`)
@@ -108,6 +150,7 @@ function ComplianceEditor({ row, onClose, onSave, saving, error }) {
     <div><h3 className="font-semibold mb-3">Collection License</h3><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><SelectField label="Requirement" value={form.collection_license_requirement} options={REQUIREMENTS} onChange={v => update('collection_license_requirement', v)} />{form.collection_license_requirement === 'Required' && <><SelectField label="Status" value={form.license_status} options={LICENSE_STATUSES} onChange={v => update('license_status', v)} /><Field label="License number"><input value={form.license_number || ''} onChange={e => update('license_number', e.target.value)} className={inputClass} /></Field><Field label="Issue date"><input type="date" value={form.license_issue_date || ''} onChange={e => update('license_issue_date', e.target.value || null)} className={inputClass} /></Field><Field label="Expiration"><input type="date" value={form.license_expiration || ''} onChange={e => update('license_expiration', e.target.value || null)} className={inputClass} /></Field><Field label="Renewal due"><input type="date" value={form.license_renewal_due || ''} onChange={e => update('license_renewal_due', e.target.value || null)} className={inputClass} /></Field></>}</div>{form.collection_license_requirement === 'Not Required' && <p className="text-sm text-gray-500 mt-2">No license status or details are required.</p>}</div>
     <div><h3 className="font-semibold mb-3">Certificate of Authority</h3><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><SelectField label="Requirement" value={form.coa_requirement} options={REQUIREMENTS} onChange={v => update('coa_requirement', v)} />{form.coa_requirement === 'Required' && <><SelectField label="Status" value={form.coa_status} options={COA_STATUSES} onChange={v => update('coa_status', v)} /><Field label="COA number"><input value={form.coa_number || ''} onChange={e => update('coa_number', e.target.value)} className={inputClass} /></Field><Field label="Issue date"><input type="date" value={form.coa_issue_date || ''} onChange={e => update('coa_issue_date', e.target.value || null)} className={inputClass} /></Field></>}</div>{form.coa_requirement === 'Not Required' && <p className="text-sm text-gray-500 mt-2">No certificate of authority status or details are required.</p>}</div>
     <div><h3 className="font-semibold mb-3">Surety Bond</h3><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><SelectField label="Requirement" value={form.bond_requirement} options={REQUIREMENTS} onChange={v => update('bond_requirement', v)} />{form.bond_requirement === 'Required' && <><SelectField label="Status" value={form.bond_status} options={BOND_STATUSES} onChange={v => update('bond_status', v)} /><Field label="Bond number"><input value={form.bond_number || ''} onChange={e => update('bond_number', e.target.value)} className={inputClass} /></Field><Field label="Bond amount"><input type="number" min="0" step="0.01" value={form.bond_amount ?? ''} onChange={e => update('bond_amount', e.target.value)} className={inputClass} /></Field><Field label="Bond expiration"><input type="date" value={form.bond_expiration || ''} onChange={e => update('bond_expiration', e.target.value || null)} className={inputClass} /></Field></>}</div>{form.bond_requirement === 'Not Required' && <p className="text-sm text-gray-500 mt-2">No bond status or details are required.</p>}</div>
+    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4"><h3 className="font-semibold text-blue-900 mb-2">Compliance PDFs</h3><div className="flex flex-col sm:flex-row gap-2"><select aria-label="PDF item type" value={uploadItemType} onChange={e => setUploadItemType(e.target.value)} className={inputClass}>{COMPLIANCE_ATTACHMENT_TYPES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select><input id="compliance-pdf-upload" type="file" accept="application/pdf,.pdf" onChange={e => setUploadFile(e.target.files?.[0] || null)} className={`${inputClass} bg-white`} /><button type="button" disabled={!uploadFile} onClick={uploadAttachment} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm disabled:opacity-50">Upload PDF</button></div>{uploadMessage && <p className="mt-2 text-xs text-blue-800">{uploadMessage}</p>}<p className="mt-2 text-xs text-blue-800">Uploaded PDFs appear beside the matching License, Certificate of Authority, or Bond item in the matrix.</p></div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4"><Field label="Notes"><textarea rows="4" value={form.notes || ''} onChange={e => update('notes', e.target.value)} className={inputClass} /></Field><Field label="Username"><input autoComplete="off" value={form.portal_username || ''} onChange={e => update('portal_username', e.target.value)} className={inputClass} /></Field><Field label="Password"><input type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder={row.has_portal_password ? 'Stored — use Load credentials to view' : ''} value={form.portal_password || ''} onChange={e => update('portal_password', e.target.value)} className={inputClass} /><div className="mt-2 flex flex-wrap items-center gap-2">{row.has_portal_password && <button type="button" onClick={loadCredentials} className="text-xs px-2 py-1 border rounded hover:bg-gray-50">Load credentials</button>}{form.portal_password && <button type="button" onClick={() => setShowPassword(current => !current)} className="text-xs px-2 py-1 border rounded hover:bg-gray-50">{showPassword ? 'Hide password' : 'Show password'}</button>}{row.has_portal_password && <label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" checked={form.clear_portal_password} onChange={e => update('clear_portal_password', e.target.checked)} /> Remove stored password</label>}</div>{credentialMessage && <p className="mt-1 text-xs text-gray-600">{credentialMessage}</p>}</Field></div>
     {error && <p className="text-sm text-red-600">Save failed: {error.response?.data?.detail || error.message}</p>}<div className="flex justify-end gap-3 border-t pt-4"><button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Cancel</button><button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">{saving ? 'Saving...' : 'Save compliance record'}</button></div>
   </form></div>

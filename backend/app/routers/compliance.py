@@ -5,15 +5,16 @@ import json
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.models.compliance_attachment import ComplianceAttachment
 from app.models.database import get_db
 from app.models.setting import Setting
 from app.models.state_compliance import StateCompliance
-from app.routers.auth import require_compliance_access
+from app.routers.auth import require_compliance_access, require_manager
 
 router = APIRouter(prefix="/api/compliance", tags=["compliance"])
 
@@ -26,6 +27,8 @@ STATES = [
     "District of Columbia",
 ]
 EDITABLE_REQUIREMENTS = {"Required", "Not Required"}
+ITEM_TYPES = {"license", "certificate_of_authority", "bond"}
+ITEM_LABELS = {"license": "License", "certificate_of_authority": "Certificate of Authority", "bond": "Bond"}
 EDITABLE_STATUSES = {"Active", "Pending", "Not Held"}
 CONFIDENCE_LEVELS = {"Verified", "High", "Medium", "Low", "Unverified"}
 SOURCE_PATH = "Licensing/Allied_Licensing_Matrix.xlsx"
@@ -155,6 +158,19 @@ def _ensure_states(db: Session):
         db.commit()
 
 
+def _attachment_summary(db: Session, state: str) -> dict[str, list[dict]]:
+    result = {item_type: [] for item_type in ITEM_TYPES}
+    rows = db.query(ComplianceAttachment).filter(ComplianceAttachment.state == state).order_by(ComplianceAttachment.created_at.desc(), ComplianceAttachment.id.desc()).all()
+    for row in rows:
+        result[row.item_type].append({
+            "id": row.id, "item_type": row.item_type, "label": ITEM_LABELS[row.item_type],
+            "filename": row.filename, "content_type": row.content_type,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "view_url": f"/api/compliance/{state}/attachments/{row.id}/view",
+        })
+    return result
+
+
 def _loads_list(value: str | None) -> list[str]:
     if not value:
         return []
@@ -247,7 +263,7 @@ def _overall(row: StateCompliance) -> tuple[str, str]:
     return "Needs Review", "yellow"
 
 
-def _serialize(row: StateCompliance) -> dict:
+def _serialize(db: Session, row: StateCompliance) -> dict:
     overall_status, indicator = _overall(row)
     return {
         "state": row.state,
@@ -273,6 +289,7 @@ def _serialize(row: StateCompliance) -> dict:
         "portal_username": row.portal_username,
         "has_portal_password": bool(row.portal_password_encrypted),
         "issues": _expiration_issues(row),
+        "attachments": _attachment_summary(db, row.state),
         "notes": row.notes,
         "source_urls": _loads_list(row.source_urls_json),
         "document_paths": _loads_list(row.document_paths_json),
@@ -288,7 +305,61 @@ def _serialize(row: StateCompliance) -> dict:
 async def list_compliance(user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
     _ensure_states(db)
     rows = db.query(StateCompliance).order_by(StateCompliance.state).all()
-    return {"states": [_serialize(row) for row in rows]}
+    return {"states": [_serialize(db, row) for row in rows]}
+
+
+@router.get("/{state}/attachments")
+async def list_compliance_attachments(
+    state: str,
+    item_type: str | None = None,
+    user: dict = Depends(require_compliance_access),
+    db: Session = Depends(get_db),
+):
+    if state not in STATES:
+        raise HTTPException(404, "State not found")
+    if item_type is not None and item_type not in ITEM_TYPES:
+        raise HTTPException(400, "Invalid compliance attachment item type")
+    summary = _attachment_summary(db, state)
+    return {"attachments": [item for key, items in summary.items() if item_type is None or key == item_type for item in items]}
+
+
+@router.post("/{state}/attachments", status_code=201)
+async def upload_compliance_attachment(
+    state: str,
+    item_type: str = Form(""),
+    file: UploadFile = File(...),
+    user: dict = Depends(require_compliance_access),
+    db: Session = Depends(get_db),
+):
+    if state not in STATES or item_type not in ITEM_TYPES:
+        raise HTTPException(400, "Invalid state or compliance attachment item type")
+    filename = file.filename or "attachment.pdf"
+    if not filename.lower().endswith(".pdf") or file.content_type not in (None, "application/pdf"):
+        raise HTTPException(400, "Compliance attachments must be PDF files")
+    content = await file.read()
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(400, "The uploaded file is not a valid PDF")
+    attachment = ComplianceAttachment(state=state, item_type=item_type, filename=filename.replace("/", "_").replace("\\", "_"), content_type="application/pdf", content=content, uploaded_by=user.get("timestation_id"))
+    db.add(attachment)
+    db.commit()
+    db.refresh(attachment)
+    return {"attachment": _attachment_summary(db, state)[item_type][0]}
+
+
+@router.get("/{state}/attachments/{attachment_id}/view")
+async def view_compliance_attachment(
+    state: str,
+    attachment_id: int,
+    response: Response,
+    user: dict = Depends(require_compliance_access),
+    db: Session = Depends(get_db),
+):
+    row = db.query(ComplianceAttachment).filter(ComplianceAttachment.id == attachment_id, ComplianceAttachment.state == state).first()
+    if not row:
+        raise HTTPException(404, "Compliance attachment not found")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    response.headers["Pragma"] = "no-cache"
+    return Response(content=row.content, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{row.filename}"', "Cache-Control": "no-store, no-cache, must-revalidate, private", "Pragma": "no-cache"})
 
 
 @router.get("/{state}/portal-credentials")
@@ -364,4 +435,4 @@ async def update_compliance(
     row.updated_by = user.get("timestation_id")
     db.commit()
     db.refresh(row)
-    return _serialize(row)
+    return _serialize(db, row)

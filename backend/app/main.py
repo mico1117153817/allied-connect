@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.config import settings
+from app.models.compliance_attachment import ComplianceAttachment
 from app.models.database import Base, engine, SessionLocal
 from app.models.employee import Employee, ensure_employee_schema
 from app.models.state_compliance import ensure_state_compliance_schema
