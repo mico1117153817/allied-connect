@@ -36,6 +36,17 @@ export function filterComplianceRows(rows = [], status = 'all', search = '') {
   })
 }
 
+export function complianceDocumentView(rows = [], selectedType = 'all') {
+  const uploadType = COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === selectedType) ? selectedType : 'license'
+  return {
+    rows,
+    showLicense: selectedType === 'all' || selectedType === 'license',
+    showCoa: selectedType === 'all' || selectedType === 'certificate_of_authority',
+    showBond: selectedType === 'all' || selectedType === 'bond',
+    uploadType,
+  }
+}
+
 export function complianceIndicator(row) {
   if (row.overall_status === 'Active') return { symbol: '✓', label: 'In Compliance', tone: 'green' }
   if (row.overall_status === 'Not Authorized') return { symbol: '✕', label: 'Not In Compliance', tone: 'red' }

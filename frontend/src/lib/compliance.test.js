@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
@@ -55,6 +55,32 @@ test('legacy values require an explicit supported selection before save', () => 
   assert.equal(normalized.license_status, '')
   assert.equal(normalized.coa_status, '')
   assert.equal(normalized.bond_status, '')
+})
+
+test('document type selection keeps states populated and focuses the selected compliance column', () => {
+  const statesWithoutPdfs = rows.map(row => ({ ...row, attachments: { license: [], certificate_of_authority: [], bond: [] } }))
+
+  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'license'), {
+    rows: statesWithoutPdfs,
+    showLicense: true,
+    showCoa: false,
+    showBond: false,
+    uploadType: 'license',
+  })
+  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'certificate_of_authority'), {
+    rows: statesWithoutPdfs,
+    showLicense: false,
+    showCoa: true,
+    showBond: false,
+    uploadType: 'certificate_of_authority',
+  })
+  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'bond'), {
+    rows: statesWithoutPdfs,
+    showLicense: false,
+    showCoa: false,
+    showBond: true,
+    uploadType: 'bond',
+  })
 })
 
 test('compliancePayload strips computed audit fields and normalizes editable values', () => {
