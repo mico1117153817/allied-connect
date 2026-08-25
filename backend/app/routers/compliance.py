@@ -61,6 +61,7 @@ class ComplianceInput(BaseModel):
     bond_expiration: date | None = None
     annual_report_requirement: str = "Not Required"
     annual_report_due_date: date | None = None
+    annual_report_renewal_date: date | None = None
     regulator: str | None = None
     state_portal_url: str | None = None
     portal_username: str | None = None
@@ -240,6 +241,8 @@ def _expiration_issues(row: StateCompliance) -> list[str]:
         issues.append("Bond status is Expired")
     if row.bond_requirement == "Required" and row.bond_expiration and row.bond_expiration < today:
         issues.append(f"Bond expired on {row.bond_expiration.isoformat()}")
+    if row.annual_report_requirement != "Not Required" and row.annual_report_renewal_date and row.annual_report_renewal_date < today:
+        issues.append(f"Annual report renewal was due on {row.annual_report_renewal_date.isoformat()}")
     return issues
 
 
@@ -289,9 +292,13 @@ def _serialize(db: Session, row: StateCompliance) -> dict:
         "bond_expiration": row.bond_expiration.isoformat() if row.bond_expiration else None,
         "annual_report_requirement": row.annual_report_requirement,
         "annual_report_due_date": row.annual_report_due_date.isoformat() if row.annual_report_due_date else None,
+        "annual_report_renewal_date": row.annual_report_renewal_date.isoformat() if row.annual_report_renewal_date else None,
         "annual_report_completed_at": f"{row.annual_report_completed_at.isoformat()}Z" if row.annual_report_completed_at else None,
         "annual_report_completed_by": row.annual_report_completed_by,
         "annual_report_completed_by_name": row.annual_report_completed_by_name,
+        "annual_report_completion_removed_at": f"{row.annual_report_completion_removed_at.isoformat()}Z" if row.annual_report_completion_removed_at else None,
+        "annual_report_completion_removed_by": row.annual_report_completion_removed_by,
+        "annual_report_completion_removed_by_name": row.annual_report_completion_removed_by_name,
         "regulator": row.regulator,
         "state_portal_url": row.state_portal_url,
         "portal_username": row.portal_username,
@@ -459,6 +466,7 @@ async def update_compliance(
     row.certificate_of_authority = row.coa_requirement == "Required" and payload.coa_status == "Active"
     if payload.annual_report_requirement == "Not Required":
         row.annual_report_due_date = None
+        row.annual_report_renewal_date = None
     row.updated_by = user.get("timestation_id")
     db.commit()
     db.refresh(row)
@@ -478,6 +486,31 @@ async def complete_annual_report(
     row.annual_report_completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
     row.annual_report_completed_by = user.get("timestation_id")
     row.annual_report_completed_by_name = user.get("name")
+    row.annual_report_completion_removed_at = None
+    row.annual_report_completion_removed_by = None
+    row.annual_report_completion_removed_by_name = None
+    row.updated_by = user.get("timestation_id")
+    db.commit()
+    db.refresh(row)
+    return _serialize(db, row)
+
+
+@router.post("/{state}/annual-report/remove-completion")
+async def remove_annual_report_completion(
+    state: str,
+    user: dict = Depends(require_compliance_access),
+    db: Session = Depends(get_db),
+):
+    if state not in STATES:
+        raise HTTPException(404, "State not found")
+    _ensure_states(db)
+    row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
+    row.annual_report_completed_at = None
+    row.annual_report_completed_by = None
+    row.annual_report_completed_by_name = None
+    row.annual_report_completion_removed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    row.annual_report_completion_removed_by = user.get("timestation_id")
+    row.annual_report_completion_removed_by_name = user.get("name")
     row.updated_by = user.get("timestation_id")
     db.commit()
     db.refresh(row)

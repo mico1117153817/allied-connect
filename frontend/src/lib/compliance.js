@@ -15,7 +15,7 @@ const EDITABLE_FIELDS = [
   'license_issue_date', 'license_expiration', 'license_renewal_due', 'coa_requirement',
   'coa_status', 'coa_number', 'coa_issue_date', 'certificate_of_authority',
   'bond_requirement', 'bond_status', 'bond_number', 'bond_amount', 'bond_expiration',
-  'annual_report_requirement', 'annual_report_due_date',
+  'annual_report_requirement', 'annual_report_due_date', 'annual_report_renewal_date',
   'regulator', 'state_portal_url', 'portal_username', 'portal_password', 'clear_portal_password', 'notes', 'source_urls', 'document_paths', 'data_confidence',
 ]
 
@@ -93,7 +93,10 @@ export function compliancePayload(row) {
     payload.bond_amount = null
     payload.bond_expiration = null
   }
-  if (row.annual_report_requirement === 'Not Required') payload.annual_report_due_date = null
+  if (row.annual_report_requirement === 'Not Required') {
+    payload.annual_report_due_date = null
+    payload.annual_report_renewal_date = null
+  }
   payload.certificate_of_authority = row.coa_requirement === 'Required' && row.coa_status === 'Active'
   payload.state_portal_url = row.state_portal_url || null
   payload.source_urls = (row.source_urls || []).map(value => value.trim()).filter(Boolean)

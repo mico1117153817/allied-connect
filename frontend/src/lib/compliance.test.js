@@ -117,7 +117,7 @@ test('compliancePayload strips computed audit fields and normalizes editable val
   const payload = compliancePayload({
     ...rows[0],
     overall_status: 'Active', indicator: 'green', updated_by: 'ADMIN', updated_at: '2026-08-13',
-    bond_amount: '', annual_report_requirement: 'Not Required', source_urls: [' https://example.gov ', ''], document_paths: [' License.pdf ', ''],
+    bond_amount: '', annual_report_requirement: 'Not Required', annual_report_renewal_date: '2027-01-01', source_urls: [' https://example.gov ', ''], document_paths: [' License.pdf ', ''],
   })
   assert.equal(payload.overall_status, undefined)
   assert.equal(payload.updated_by, undefined)
@@ -125,4 +125,5 @@ test('compliancePayload strips computed audit fields and normalizes editable val
   assert.deepEqual(payload.source_urls, ['https://example.gov'])
   assert.deepEqual(payload.document_paths, ['License.pdf'])
   assert.equal(payload.annual_report_requirement, 'Not Required')
+  assert.equal(payload.annual_report_renewal_date, null)
 })

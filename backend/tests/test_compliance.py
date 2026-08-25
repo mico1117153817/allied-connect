@@ -52,9 +52,13 @@ def test_schema_upgrade_adds_new_fields_to_existing_compliance_table():
     assert "source_urls_json" in columns
     assert "annual_report_requirement" in columns
     assert "annual_report_due_date" in columns
+    assert "annual_report_renewal_date" in columns
     assert "annual_report_completed_at" in columns
     assert "annual_report_completed_by" in columns
     assert "annual_report_completed_by_name" in columns
+    assert "annual_report_completion_removed_at" in columns
+    assert "annual_report_completion_removed_by" in columns
+    assert "annual_report_completion_removed_by_name" in columns
 
 
 def test_matrix_seed_populates_known_company_records(harness):
@@ -447,12 +451,14 @@ def test_annual_report_schedule_can_be_saved(harness):
         "bond_requirement": "Not Required",
         "annual_report_requirement": "Bi-Annual",
         "annual_report_due_date": "2027-06-30",
+        "annual_report_renewal_date": "2027-12-31",
         "data_confidence": "Verified",
     })
     assert response.status_code == 200, response.text
     row = response.json()
     assert row["annual_report_requirement"] == "Bi-Annual"
     assert row["annual_report_due_date"] == "2027-06-30"
+    assert row["annual_report_renewal_date"] == "2027-12-31"
     assert row["annual_report_completed_at"] is None
     assert row["annual_report_completed_by"] is None
     assert row["annual_report_completed_by_name"] is None
@@ -485,6 +491,39 @@ def test_mark_annual_report_completed_records_server_timestamp_and_user(harness)
     assert persisted["annual_report_completed_at"] == row["annual_report_completed_at"]
     assert persisted["annual_report_completed_by"] == "ADMIN"
     assert persisted["annual_report_completed_by_name"] == "Marc"
+
+
+def test_remove_annual_report_completion_records_timestamp_and_user(harness):
+    client, _ = harness
+    assert client.post("/api/compliance/Alabama/annual-report/complete").status_code == 200
+
+    response = client.post("/api/compliance/Alabama/annual-report/remove-completion")
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["annual_report_completed_at"] is None
+    assert row["annual_report_completed_by"] is None
+    assert row["annual_report_completed_by_name"] is None
+    assert row["annual_report_completion_removed_at"].endswith("Z")
+    assert row["annual_report_completion_removed_by"] == "ADMIN"
+    assert row["annual_report_completion_removed_by_name"] == "Marc"
+
+
+def test_past_annual_report_renewal_date_moves_state_to_needs_review_with_description(harness):
+    client, _ = harness
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "annual_report_requirement": "Annual",
+        "annual_report_due_date": "2020-01-01",
+        "annual_report_renewal_date": "2020-12-31",
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["overall_status"] == "Needs Review"
+    assert row["indicator"] == "yellow"
+    assert "Annual report renewal was due on 2020-12-31" in row["issues"]
 
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
     client, _ = harness
