@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 import base64
 import hashlib
 import json
@@ -31,6 +31,7 @@ ITEM_TYPES = {"license", "certificate_of_authority", "bond", "annual_report", "f
 ITEM_LABELS = {"license": "License", "certificate_of_authority": "Certificate of Authority", "bond": "Bond", "annual_report": "Annual Report", "filing_receipt": "Filing Receipt"}
 EDITABLE_STATUSES = {"Active", "Pending", "Not Held"}
 CONFIDENCE_LEVELS = {"Verified", "High", "Medium", "Low", "Unverified"}
+ANNUAL_REPORT_REQUIREMENTS = {"Not Required", "Annual", "Bi-Annual"}
 SOURCE_PATH = "Licensing/Allied_Licensing_Matrix.xlsx"
 SEED_PATH = Path(__file__).resolve().parent.parent / "data" / "state_compliance_seed.json"
 DATE_FIELDS = {
@@ -58,6 +59,8 @@ class ComplianceInput(BaseModel):
     bond_number: str | None = None
     bond_amount: float | None = Field(None, ge=0)
     bond_expiration: date | None = None
+    annual_report_requirement: str = "Not Required"
+    annual_report_due_date: date | None = None
     regulator: str | None = None
     state_portal_url: str | None = None
     portal_username: str | None = None
@@ -284,6 +287,11 @@ def _serialize(db: Session, row: StateCompliance) -> dict:
         "bond_number": row.bond_number,
         "bond_amount": float(row.bond_amount) if row.bond_amount is not None else None,
         "bond_expiration": row.bond_expiration.isoformat() if row.bond_expiration else None,
+        "annual_report_requirement": row.annual_report_requirement,
+        "annual_report_due_date": row.annual_report_due_date.isoformat() if row.annual_report_due_date else None,
+        "annual_report_completed_at": f"{row.annual_report_completed_at.isoformat()}Z" if row.annual_report_completed_at else None,
+        "annual_report_completed_by": row.annual_report_completed_by,
+        "annual_report_completed_by_name": row.annual_report_completed_by_name,
         "regulator": row.regulator,
         "state_portal_url": row.state_portal_url,
         "portal_username": row.portal_username,
@@ -416,6 +424,8 @@ async def update_compliance(
         raise HTTPException(400, "Bond status must be Active, Pending, or Not Held")
     if payload.data_confidence not in CONFIDENCE_LEVELS:
         raise HTTPException(400, "Invalid confidence value")
+    if payload.annual_report_requirement not in ANNUAL_REPORT_REQUIREMENTS:
+        raise HTTPException(400, "Annual report requirement must be Not Required, Annual, or Bi-Annual")
     _ensure_states(db)
     row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
     values = payload.model_dump(exclude={"source_urls", "document_paths", "portal_password"})
@@ -447,6 +457,27 @@ async def update_compliance(
     row.source_urls_json = json.dumps(payload.source_urls)
     row.document_paths_json = json.dumps(payload.document_paths)
     row.certificate_of_authority = row.coa_requirement == "Required" and payload.coa_status == "Active"
+    if payload.annual_report_requirement == "Not Required":
+        row.annual_report_due_date = None
+    row.updated_by = user.get("timestation_id")
+    db.commit()
+    db.refresh(row)
+    return _serialize(db, row)
+
+
+@router.post("/{state}/annual-report/complete")
+async def complete_annual_report(
+    state: str,
+    user: dict = Depends(require_compliance_access),
+    db: Session = Depends(get_db),
+):
+    if state not in STATES:
+        raise HTTPException(404, "State not found")
+    _ensure_states(db)
+    row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
+    row.annual_report_completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    row.annual_report_completed_by = user.get("timestation_id")
+    row.annual_report_completed_by_name = user.get("name")
     row.updated_by = user.get("timestation_id")
     db.commit()
     db.refresh(row)

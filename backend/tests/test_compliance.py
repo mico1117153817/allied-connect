@@ -50,6 +50,11 @@ def test_schema_upgrade_adds_new_fields_to_existing_compliance_table():
     assert "coa_number" in columns
     assert "bond_expiration" in columns
     assert "source_urls_json" in columns
+    assert "annual_report_requirement" in columns
+    assert "annual_report_due_date" in columns
+    assert "annual_report_completed_at" in columns
+    assert "annual_report_completed_by" in columns
+    assert "annual_report_completed_by_name" in columns
 
 
 def test_matrix_seed_populates_known_company_records(harness):
@@ -432,6 +437,54 @@ def test_filing_receipt_pdf_can_be_uploaded_and_returned_in_register(harness):
     assert attachment["label"] == "Filing Receipt"
     row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
     assert row["attachments"]["filing_receipt"][0]["filename"] == "filing-receipt.pdf"
+
+
+def test_annual_report_schedule_can_be_saved(harness):
+    client, _ = harness
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "annual_report_requirement": "Bi-Annual",
+        "annual_report_due_date": "2027-06-30",
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["annual_report_requirement"] == "Bi-Annual"
+    assert row["annual_report_due_date"] == "2027-06-30"
+    assert row["annual_report_completed_at"] is None
+    assert row["annual_report_completed_by"] is None
+    assert row["annual_report_completed_by_name"] is None
+
+
+def test_annual_report_schedule_rejects_invalid_requirement(harness):
+    client, _ = harness
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "annual_report_requirement": "Quarterly",
+        "data_confidence": "Verified",
+    })
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Annual report requirement must be Not Required, Annual, or Bi-Annual"
+
+
+def test_mark_annual_report_completed_records_server_timestamp_and_user(harness):
+    client, _ = harness
+    response = client.post("/api/compliance/Alabama/annual-report/complete")
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["annual_report_completed_at"] is not None
+    assert row["annual_report_completed_at"].endswith("Z")
+    assert row["annual_report_completed_by"] == "ADMIN"
+    assert row["annual_report_completed_by_name"] == "Marc"
+
+    persisted = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
+    assert persisted["annual_report_completed_at"] == row["annual_report_completed_at"]
+    assert persisted["annual_report_completed_by"] == "ADMIN"
+    assert persisted["annual_report_completed_by_name"] == "Marc"
 
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
     client, _ = harness

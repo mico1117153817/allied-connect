@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
@@ -42,6 +42,10 @@ test('complianceIndicator returns explicit state compliance labels', () => {
 test('compliance editor choices are restricted to binary requirements and current statuses', () => {
   assert.deepEqual(COMPLIANCE_REQUIREMENTS, ['Required', 'Not Required'])
   assert.deepEqual(COMPLIANCE_STATUSES, ['Active', 'Pending', 'Not Held'])
+})
+
+test('annual report scheduling supports only the requested filing frequencies', () => {
+  assert.deepEqual(ANNUAL_REPORT_REQUIREMENTS, ['Not Required', 'Annual', 'Bi-Annual'])
 })
 
 test('legacy values require an explicit supported selection before save', () => {
@@ -113,11 +117,12 @@ test('compliancePayload strips computed audit fields and normalizes editable val
   const payload = compliancePayload({
     ...rows[0],
     overall_status: 'Active', indicator: 'green', updated_by: 'ADMIN', updated_at: '2026-08-13',
-    bond_amount: '', source_urls: [' https://example.gov ', ''], document_paths: [' License.pdf ', ''],
+    bond_amount: '', annual_report_requirement: 'Not Required', source_urls: [' https://example.gov ', ''], document_paths: [' License.pdf ', ''],
   })
   assert.equal(payload.overall_status, undefined)
   assert.equal(payload.updated_by, undefined)
   assert.equal(payload.bond_amount, null)
   assert.deepEqual(payload.source_urls, ['https://example.gov'])
   assert.deepEqual(payload.document_paths, ['License.pdf'])
+  assert.equal(payload.annual_report_requirement, 'Not Required')
 })

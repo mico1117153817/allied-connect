@@ -8,12 +8,14 @@ export const COMPLIANCE_ATTACHMENT_TYPES = [
 
 export const COMPLIANCE_REQUIREMENTS = ['Required', 'Not Required']
 export const COMPLIANCE_STATUSES = ['Active', 'Pending', 'Not Held']
+export const ANNUAL_REPORT_REQUIREMENTS = ['Not Required', 'Annual', 'Bi-Annual']
 
 const EDITABLE_FIELDS = [
   'jurisdiction', 'collection_license_requirement', 'license_status', 'license_number',
   'license_issue_date', 'license_expiration', 'license_renewal_due', 'coa_requirement',
   'coa_status', 'coa_number', 'coa_issue_date', 'certificate_of_authority',
   'bond_requirement', 'bond_status', 'bond_number', 'bond_amount', 'bond_expiration',
+  'annual_report_requirement', 'annual_report_due_date',
   'regulator', 'state_portal_url', 'portal_username', 'portal_password', 'clear_portal_password', 'notes', 'source_urls', 'document_paths', 'data_confidence',
 ]
 
@@ -91,6 +93,7 @@ export function compliancePayload(row) {
     payload.bond_amount = null
     payload.bond_expiration = null
   }
+  if (row.annual_report_requirement === 'Not Required') payload.annual_report_due_date = null
   payload.certificate_of_authority = row.coa_requirement === 'Required' && row.coa_status === 'Active'
   payload.state_portal_url = row.state_portal_url || null
   payload.source_urls = (row.source_urls || []).map(value => value.trim()).filter(Boolean)
