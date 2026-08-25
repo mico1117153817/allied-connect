@@ -418,6 +418,21 @@ def test_attachment_delete_requires_matching_state(harness):
     assert client.delete(f"/api/compliance/Alaska/attachments/{attachment['id']}").status_code == 404
     assert client.get(attachment["view_url"]).status_code == 200
 
+
+def test_filing_receipt_pdf_can_be_uploaded_and_returned_in_register(harness):
+    client, _ = harness
+    upload = client.post(
+        "/api/compliance/Alabama/attachments",
+        files={"file": ("filing-receipt.pdf", b"%PDF-1.4 filing receipt", "application/pdf")},
+        data={"item_type": "filing_receipt"},
+    )
+    assert upload.status_code == 201, upload.text
+    attachment = upload.json()["attachment"]
+    assert attachment["item_type"] == "filing_receipt"
+    assert attachment["label"] == "Filing Receipt"
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
+    assert row["attachments"]["filing_receipt"][0]["filename"] == "filing-receipt.pdf"
+
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
     client, _ = harness
     response = client.get("/api/compliance")

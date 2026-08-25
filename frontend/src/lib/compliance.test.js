@@ -58,7 +58,7 @@ test('legacy values require an explicit supported selection before save', () => 
 })
 
 test('document type selection keeps states populated and focuses the selected compliance column', () => {
-  const statesWithoutPdfs = rows.map(row => ({ ...row, attachments: { license: [], certificate_of_authority: [], bond: [], annual_report: [] } }))
+  const statesWithoutPdfs = rows.map(row => ({ ...row, attachments: { license: [], certificate_of_authority: [], bond: [], annual_report: [], filing_receipt: [] } }))
 
   assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'license'), {
     rows: statesWithoutPdfs,
@@ -66,6 +66,7 @@ test('document type selection keeps states populated and focuses the selected co
     showCoa: false,
     showBond: false,
     showAnnualReport: false,
+    showFilingReceipt: false,
     uploadType: 'license',
   })
   assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'certificate_of_authority'), {
@@ -74,6 +75,7 @@ test('document type selection keeps states populated and focuses the selected co
     showCoa: true,
     showBond: false,
     showAnnualReport: false,
+    showFilingReceipt: false,
     uploadType: 'certificate_of_authority',
   })
   assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'bond'), {
@@ -82,6 +84,7 @@ test('document type selection keeps states populated and focuses the selected co
     showCoa: false,
     showBond: true,
     showAnnualReport: false,
+    showFilingReceipt: false,
     uploadType: 'bond',
   })
   assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'annual_report'), {
@@ -90,9 +93,20 @@ test('document type selection keeps states populated and focuses the selected co
     showCoa: false,
     showBond: false,
     showAnnualReport: true,
+    showFilingReceipt: false,
     uploadType: 'annual_report',
   })
+  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'filing_receipt'), {
+    rows: statesWithoutPdfs,
+    showLicense: false,
+    showCoa: false,
+    showBond: false,
+    showAnnualReport: false,
+    showFilingReceipt: true,
+    uploadType: 'filing_receipt',
+  })
   assert.ok(COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === 'annual_report' && option.label === 'Annual Reports'))
+  assert.ok(COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === 'filing_receipt' && option.label === 'Filing Receipts'))
 })
 
 test('compliancePayload strips computed audit fields and normalizes editable values', () => {

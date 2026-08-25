@@ -27,8 +27,8 @@ STATES = [
     "District of Columbia",
 ]
 EDITABLE_REQUIREMENTS = {"Required", "Not Required"}
-ITEM_TYPES = {"license", "certificate_of_authority", "bond", "annual_report"}
-ITEM_LABELS = {"license": "License", "certificate_of_authority": "Certificate of Authority", "bond": "Bond", "annual_report": "Annual Report"}
+ITEM_TYPES = {"license", "certificate_of_authority", "bond", "annual_report", "filing_receipt"}
+ITEM_LABELS = {"license": "License", "certificate_of_authority": "Certificate of Authority", "bond": "Bond", "annual_report": "Annual Report", "filing_receipt": "Filing Receipt"}
 EDITABLE_STATUSES = {"Active", "Pending", "Not Held"}
 CONFIDENCE_LEVELS = {"Verified", "High", "Medium", "Low", "Unverified"}
 SOURCE_PATH = "Licensing/Allied_Licensing_Matrix.xlsx"
