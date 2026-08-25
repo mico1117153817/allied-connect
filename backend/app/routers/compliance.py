@@ -27,8 +27,8 @@ STATES = [
     "District of Columbia",
 ]
 EDITABLE_REQUIREMENTS = {"Required", "Not Required"}
-ITEM_TYPES = {"license", "certificate_of_authority", "bond"}
-ITEM_LABELS = {"license": "License", "certificate_of_authority": "Certificate of Authority", "bond": "Bond"}
+ITEM_TYPES = {"license", "certificate_of_authority", "bond", "annual_report"}
+ITEM_LABELS = {"license": "License", "certificate_of_authority": "Certificate of Authority", "bond": "Bond", "annual_report": "Annual Report"}
 EDITABLE_STATUSES = {"Active", "Pending", "Not Held"}
 CONFIDENCE_LEVELS = {"Verified", "High", "Medium", "Low", "Unverified"}
 SOURCE_PATH = "Licensing/Allied_Licensing_Matrix.xlsx"
@@ -360,6 +360,21 @@ async def view_compliance_attachment(
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
     response.headers["Pragma"] = "no-cache"
     return Response(content=row.content, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{row.filename}"', "Cache-Control": "no-store, no-cache, must-revalidate, private", "Pragma": "no-cache"})
+
+
+@router.delete("/{state}/attachments/{attachment_id}", status_code=204)
+async def delete_compliance_attachment(
+    state: str,
+    attachment_id: int,
+    user: dict = Depends(require_compliance_access),
+    db: Session = Depends(get_db),
+):
+    row = db.query(ComplianceAttachment).filter(ComplianceAttachment.id == attachment_id, ComplianceAttachment.state == state).first()
+    if not row:
+        raise HTTPException(404, "Compliance attachment not found")
+    db.delete(row)
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/{state}/portal-credentials")

@@ -384,6 +384,40 @@ def test_compliance_attachments_are_returned_in_state_register(harness):
     row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
     assert row["attachments"]["certificate_of_authority"][0]["filename"] == "coa.pdf"
 
+
+def test_annual_report_pdf_can_be_uploaded_viewed_and_deleted(harness):
+    client, _ = harness
+    upload = client.post(
+        "/api/compliance/Alabama/attachments",
+        files={"file": ("annual-report.pdf", b"%PDF-1.4 annual report", "application/pdf")},
+        data={"item_type": "annual_report"},
+    )
+    assert upload.status_code == 201, upload.text
+    attachment = upload.json()["attachment"]
+    assert attachment["item_type"] == "annual_report"
+    assert attachment["label"] == "Annual Report"
+
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
+    assert row["attachments"]["annual_report"][0]["filename"] == "annual-report.pdf"
+    assert client.get(attachment["view_url"]).status_code == 200
+
+    deleted = client.delete(f"/api/compliance/Alabama/attachments/{attachment['id']}")
+    assert deleted.status_code == 204, deleted.text
+    assert client.get(attachment["view_url"]).status_code == 404
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Alabama"]
+    assert row["attachments"]["annual_report"] == []
+
+
+def test_attachment_delete_requires_matching_state(harness):
+    client, _ = harness
+    attachment = client.post(
+        "/api/compliance/Alabama/attachments",
+        files={"file": ("license.pdf", b"%PDF-1.4 license", "application/pdf")},
+        data={"item_type": "license"},
+    ).json()["attachment"]
+    assert client.delete(f"/api/compliance/Alaska/attachments/{attachment['id']}").status_code == 404
+    assert client.get(attachment["view_url"]).status_code == 200
+
 def test_compliance_register_starts_with_all_supported_jurisdictions(harness):
     client, _ = harness
     response = client.get("/api/compliance")

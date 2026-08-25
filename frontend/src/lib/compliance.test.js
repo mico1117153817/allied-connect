@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
@@ -58,13 +58,14 @@ test('legacy values require an explicit supported selection before save', () => 
 })
 
 test('document type selection keeps states populated and focuses the selected compliance column', () => {
-  const statesWithoutPdfs = rows.map(row => ({ ...row, attachments: { license: [], certificate_of_authority: [], bond: [] } }))
+  const statesWithoutPdfs = rows.map(row => ({ ...row, attachments: { license: [], certificate_of_authority: [], bond: [], annual_report: [] } }))
 
   assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'license'), {
     rows: statesWithoutPdfs,
     showLicense: true,
     showCoa: false,
     showBond: false,
+    showAnnualReport: false,
     uploadType: 'license',
   })
   assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'certificate_of_authority'), {
@@ -72,6 +73,7 @@ test('document type selection keeps states populated and focuses the selected co
     showLicense: false,
     showCoa: true,
     showBond: false,
+    showAnnualReport: false,
     uploadType: 'certificate_of_authority',
   })
   assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'bond'), {
@@ -79,8 +81,18 @@ test('document type selection keeps states populated and focuses the selected co
     showLicense: false,
     showCoa: false,
     showBond: true,
+    showAnnualReport: false,
     uploadType: 'bond',
   })
+  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'annual_report'), {
+    rows: statesWithoutPdfs,
+    showLicense: false,
+    showCoa: false,
+    showBond: false,
+    showAnnualReport: true,
+    uploadType: 'annual_report',
+  })
+  assert.ok(COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === 'annual_report' && option.label === 'Annual Reports'))
 })
 
 test('compliancePayload strips computed audit fields and normalizes editable values', () => {

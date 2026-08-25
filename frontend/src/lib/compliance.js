@@ -2,6 +2,7 @@ export const COMPLIANCE_ATTACHMENT_TYPES = [
   { value: 'license', label: 'Licenses' },
   { value: 'certificate_of_authority', label: 'Certificate of Authority' },
   { value: 'bond', label: 'Bonds' },
+  { value: 'annual_report', label: 'Annual Reports' },
 ]
 
 export const COMPLIANCE_REQUIREMENTS = ['Required', 'Not Required']
@@ -43,6 +44,7 @@ export function complianceDocumentView(rows = [], selectedType = 'all') {
     showLicense: selectedType === 'all' || selectedType === 'license',
     showCoa: selectedType === 'all' || selectedType === 'certificate_of_authority',
     showBond: selectedType === 'all' || selectedType === 'bond',
+    showAnnualReport: selectedType === 'all' || selectedType === 'annual_report',
     uploadType,
   }
 }
