@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { formatCalendarDate } from '../lib/calendar'
 import { getEmployee, logout, isManager, canAccessCompliance } from '../lib/auth'
+import { formatDateTime12Hour, formatTime12Hour } from '../lib/time'
 
 export default function Dashboard() {
   const employee = getEmployee()
@@ -127,9 +128,6 @@ export default function Dashboard() {
   const ppStart = ppData?.pay_period?.start_date
   const ppEnd = ppData?.pay_period?.end_date
   const isInPayPeriod = (dateStr) => ppStart && ppEnd && dateStr >= ppStart && dateStr <= ppEnd
-
-  // Format time from ISO string
-  const fmtTime = (iso) => iso ? iso.slice(11, 16) : '--'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -280,7 +278,7 @@ export default function Dashboard() {
                           {t.action === 'added' ? '+' : ''}{t.amount}h {t.type.replace('_', ' ')}
                         </span>
                         <span className="ml-2 text-gray-500 text-xs">
-                          by {t.input_by_name || 'system'} · {t.created_at ? new Date(t.created_at).toLocaleString() : ''}
+                          by {t.input_by_name || 'system'} · {t.created_at ? formatDateTime12Hour(t.created_at) : ''}
                         </span>
                         {t.reason && <span className="ml-2 text-gray-400 text-xs">— {t.reason}</span>}
                       </div>
@@ -382,7 +380,7 @@ export default function Dashboard() {
                                 {h.action === 'added' ? '+' : ''}{h.amount}h {h.type.replace('_', ' ')}
                               </span>
                               <span className="ml-2 text-gray-500">
-                                by {h.input_by_name || 'system'} · {h.created_at ? new Date(h.created_at).toLocaleString() : ''}
+                                by {h.input_by_name || 'system'} · {h.created_at ? formatDateTime12Hour(h.created_at) : ''}
                               </span>
                               {h.reason && <span className="ml-1 text-gray-400">— {h.reason}</span>}
                             </div>
@@ -504,11 +502,11 @@ export default function Dashboard() {
                       <div key={i} className="flex justify-between items-center p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">IN</span>
-                          <span className="text-sm">{fmtTime(s.in)}</span>
+                          <span className="text-sm">{formatTime12Hour(s.in)}</span>
                         </div>
                         <div className="text-gray-400">→</div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm">{fmtTime(s.out)}</span>
+                          <span className="text-sm">{formatTime12Hour(s.out)}</span>
                           <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">OUT</span>
                         </div>
                         <div className="text-sm text-gray-600 font-medium">{(s.minutes / 60).toFixed(1)}h</div>

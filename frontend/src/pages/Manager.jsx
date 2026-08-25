@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { formatCalendarDate } from '../lib/calendar'
 import { logout, isSuperAdmin } from '../lib/auth'
+import { formatDateTime12Hour, formatTime12Hour } from '../lib/time'
 
 export default function Manager() {
   const qc = useQueryClient()
@@ -98,13 +99,11 @@ export default function Manager() {
   const pendingRequestCount = timeOffData?.requests?.filter(request => request.status === 'pending').length || 0
   const payPeriodFor = (request) => empPeriods?.pay_periods?.find(period => period.id === request?.pay_period_id)
 
-  const formatEasternTime = (timestamp) => timestamp
-    ? new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/New_York',
-        month: 'short', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short',
-      }).format(new Date(timestamp))
-    : 'Unknown'
+  const formatEasternTime = (timestamp) => formatDateTime12Hour(timestamp, {
+    timeZone: 'America/New_York',
+    month: 'short',
+    timeZoneName: 'short',
+  })
 
   const statusColor = (status) => ({
     pending: 'bg-yellow-100 text-yellow-800',
@@ -168,7 +167,7 @@ export default function Manager() {
                         <span className="font-medium">{e.name}</span>
                         <span className="text-xs text-gray-500 ml-2">{e.department}</span>
                       </div>
-                      <span className="text-sm text-gray-600">Since {e.last_seen}</span>
+                      <span className="text-sm text-gray-600">Since {formatTime12Hour(e.last_seen)}</span>
                     </div>
                   ))}
                   {todayData?.at_work?.length === 0 && <p className="text-gray-400 text-center py-4">No one currently clocked in</p>}
@@ -185,7 +184,7 @@ export default function Manager() {
                         <span className="font-medium">{e.name}</span>
                         <span className="text-xs text-gray-500 ml-2">{e.department}</span>
                       </div>
-                      <span className="text-sm text-gray-500">Last: {e.last_seen || 'Never'}</span>
+                      <span className="text-sm text-gray-500">Last: {e.last_seen ? formatTime12Hour(e.last_seen) : 'Never'}</span>
                     </div>
                   ))}
                 </div>
@@ -410,7 +409,7 @@ export default function Manager() {
                             {empPeriodData.hours_used.map((entry, index) => (
                               <div key={index} className="p-2 bg-gray-50 rounded text-xs">
                                 <span className="font-medium text-red-700">{entry.amount}h {entry.type.replace('_', ' ')}</span>
-                                <span className="ml-2 text-gray-500">by {entry.input_by_name || 'system'} · {entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</span>
+                                <span className="ml-2 text-gray-500">by {entry.input_by_name || 'system'} · {entry.created_at ? formatDateTime12Hour(entry.created_at) : ''}</span>
                                 {entry.reason && <span className="ml-2 text-gray-400">— {entry.reason}</span>}
                               </div>
                             ))}
@@ -531,7 +530,7 @@ export default function Manager() {
                               <div className="text-sm text-gray-600">
                                 {day.shifts.map((s, i) => (
                                   <div key={i} className="text-right">
-                                    {s.in?.slice(11, 16)} → {s.out?.slice(11, 16)} ({(s.minutes / 60).toFixed(1)}h)
+                                    {formatTime12Hour(s.in)} → {formatTime12Hour(s.out)} ({(s.minutes / 60).toFixed(1)}h)
                                   </div>
                                 ))}
                               </div>
@@ -635,11 +634,11 @@ export default function Manager() {
                       <div key={i} className="flex justify-between items-center p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">IN</span>
-                          <span className="text-sm">{s.in?.slice(11, 16)}</span>
+                          <span className="text-sm">{formatTime12Hour(s.in)}</span>
                         </div>
                         <div className="text-gray-400">→</div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm">{s.out?.slice(11, 16)}</span>
+                          <span className="text-sm">{formatTime12Hour(s.out)}</span>
                           <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">OUT</span>
                         </div>
                         <div className="text-sm text-gray-600 font-medium">{(s.minutes / 60).toFixed(1)}h</div>

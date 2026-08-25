@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { logout, isSuperAdmin } from '../lib/auth'
+import { formatDateTime12Hour, scheduleTimeAriaLabel, timeOptionsIncluding } from '../lib/time'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const DOW_NUM = [0, 1, 2, 3, 4, 5, 6]
@@ -418,8 +419,8 @@ export default function Settings() {
                   </label>
                 </div>
                 <div className="col-span-3">
-                  <input
-                    type="time"
+                  <select
+                    aria-label={scheduleTimeAriaLabel(DAYS[dow], 'start')}
                     value={bulkForm[dow].start}
                     onChange={(e) => setBulkForm({
                       ...bulkForm,
@@ -427,11 +428,16 @@ export default function Settings() {
                     })}
                     disabled={!bulkForm[dow].start}
                     className="w-full px-2 py-1 border rounded text-sm disabled:bg-gray-100"
-                  />
+                  >
+                    <option value="">--</option>
+                    {timeOptionsIncluding(bulkForm[dow].start).map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="col-span-3">
-                  <input
-                    type="time"
+                  <select
+                    aria-label={scheduleTimeAriaLabel(DAYS[dow], 'end')}
                     value={bulkForm[dow].end}
                     onChange={(e) => setBulkForm({
                       ...bulkForm,
@@ -439,7 +445,12 @@ export default function Settings() {
                     })}
                     disabled={!bulkForm[dow].start}
                     className="w-full px-2 py-1 border rounded text-sm disabled:bg-gray-100"
-                  />
+                  >
+                    <option value="">--</option>
+                    {timeOptionsIncluding(bulkForm[dow].end).map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             ))}
@@ -514,8 +525,8 @@ export default function Settings() {
                       </label>
                     </div>
                     <div className="col-span-3">
-                      <input
-                        type="time"
+                      <select
+                        aria-label={scheduleTimeAriaLabel(DAYS[dow], 'start')}
                         value={formEntry.start}
                         onChange={(e) => setScheduleForm({
                           ...scheduleForm,
@@ -523,11 +534,16 @@ export default function Settings() {
                         })}
                         disabled={!formEntry.start && !existing?.start}
                         className="w-full px-2 py-1 border rounded text-sm disabled:bg-gray-100"
-                      />
+                      >
+                        <option value="">--</option>
+                        {timeOptionsIncluding(formEntry.start).map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="col-span-2">
-                      <input
-                        type="time"
+                      <select
+                        aria-label={scheduleTimeAriaLabel(DAYS[dow], 'end')}
                         value={formEntry.end}
                         onChange={(e) => setScheduleForm({
                           ...scheduleForm,
@@ -535,7 +551,12 @@ export default function Settings() {
                         })}
                         disabled={!formEntry.start && !existing?.start}
                         className="w-full px-2 py-1 border rounded text-sm disabled:bg-gray-100"
-                      />
+                      >
+                        <option value="">--</option>
+                        {timeOptionsIncluding(formEntry.end).map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="col-span-2">
                       <button
@@ -697,7 +718,7 @@ export default function Settings() {
                               {t.action === 'added' ? '+' : ''}{t.amount}h {t.type.replace('_', ' ')}
                             </span>
                             <span className="ml-2 text-gray-500 text-xs">
-                              by {t.input_by_name || 'system'} · {t.created_at ? new Date(t.created_at).toLocaleString() : ''}
+                              by {t.input_by_name || 'system'} · {t.created_at ? formatDateTime12Hour(t.created_at) : ''}
                             </span>
                             {t.reason && <span className="ml-2 text-gray-400 text-xs">— {t.reason}</span>}
                           </div>
