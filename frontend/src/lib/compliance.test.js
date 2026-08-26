@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, complianceRequirementDisplay, complianceAttachmentLabel, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REGISTER_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, complianceRequirementDisplay, complianceLicenseDetails, complianceAttachmentLabel, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REGISTER_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', regulator: 'Secretary of State' },
@@ -131,6 +131,12 @@ test('not-required compliance cells show only Not Required', () => {
     secondary: null,
     showAttachments: true,
   })
+})
+
+test('active and pending licenses retain number and expiration details', () => {
+  assert.equal(complianceLicenseDetails('Active', 'LIC-A', '2027-01-02'), 'LIC-A · exp 2027-01-02')
+  assert.equal(complianceLicenseDetails('Pending', 'LIC-P', '2028-03-04'), 'LIC-P · exp 2028-03-04')
+  assert.equal(complianceLicenseDetails('Not Held', null, null), null)
 })
 
 test('Compliance UI does not expose confidence', () => {

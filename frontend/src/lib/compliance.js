@@ -75,6 +75,11 @@ export function complianceRequirementDisplay(requirement, primary, secondary) {
   return { primary, secondary, showAttachments: true }
 }
 
+export function complianceLicenseDetails(status, number, expiration) {
+  if (status === 'Not Held') return null
+  return `${number || 'No number'}${expiration ? ` · exp ${expiration}` : ''}`
+}
+
 export function complianceAttachmentLabel(attachments = []) {
   if (!attachments?.length) return 'NA'
   return `${attachments.length} PDF${attachments.length === 1 ? '' : 's'}`
