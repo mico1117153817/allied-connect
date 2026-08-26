@@ -20,7 +20,7 @@ const EDITABLE_FIELDS = [
   'coa_status', 'coa_number', 'coa_issue_date', 'certificate_of_authority',
   'bond_requirement', 'bond_status', 'bond_number', 'bond_amount', 'bond_expiration',
   'annual_report_requirement', 'annual_report_due_date', 'annual_report_renewal_date',
-  'regulator', 'state_portal_url', 'portal_username', 'portal_password', 'clear_portal_password', 'notes', 'source_urls', 'document_paths', 'data_confidence',
+  'regulator', 'state_portal_url', 'portal_username', 'portal_password', 'clear_portal_password', 'notes', 'source_urls', 'document_paths',
 ]
 
 export function complianceSummary(rows = []) {
@@ -68,6 +68,9 @@ export function complianceDocumentView(rows = [], selectedType = 'all') {
 export function complianceRequirementDisplay(requirement, primary, secondary) {
   if (requirement === 'Not Required') {
     return { primary: 'Not Required', secondary: null, showAttachments: false }
+  }
+  if (primary === 'Not Held') {
+    return { primary: 'Not Held', secondary: null, showAttachments: true }
   }
   return { primary, secondary, showAttachments: true }
 }

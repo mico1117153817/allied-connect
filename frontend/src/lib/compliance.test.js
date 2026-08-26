@@ -1,13 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, complianceRequirementDisplay, complianceAttachmentLabel, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REGISTER_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
-  { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
-  { state: 'New York', overall_status: 'Not Authorized', data_confidence: 'High', regulator: 'DCWP' },
-  { state: 'Wyoming', overall_status: 'Needs Review', data_confidence: 'Low', regulator: null },
-  { state: 'Texas', overall_status: 'Unknown', data_confidence: 'Unverified', regulator: null },
+  { state: 'Alabama', overall_status: 'Active', regulator: 'Secretary of State' },
+  { state: 'New York', overall_status: 'Not Authorized', regulator: 'DCWP' },
+  { state: 'Wyoming', overall_status: 'Needs Review', regulator: null },
+  { state: 'Texas', overall_status: 'Unknown', regulator: null },
 ]
 
 test('complianceSummary counts each decision state', () => {
@@ -125,6 +126,16 @@ test('not-required compliance cells show only Not Required', () => {
     secondary: 'LIC-123',
     showAttachments: true,
   })
+  assert.deepEqual(complianceRequirementDisplay('Required', 'Not Held', 'No number'), {
+    primary: 'Not Held',
+    secondary: null,
+    showAttachments: true,
+  })
+})
+
+test('Compliance UI does not expose confidence', () => {
+  const source = readFileSync(new URL('../pages/Compliance.jsx', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /Confidence|data_confidence/)
 })
 
 test('empty annual report and filing receipt cells display NA', () => {
@@ -139,10 +150,12 @@ test('compliancePayload strips computed audit fields and normalizes editable val
   const payload = compliancePayload({
     ...rows[0],
     overall_status: 'Active', indicator: 'green', updated_by: 'ADMIN', updated_at: '2026-08-13',
+    data_confidence: 'High',
     bond_amount: '', annual_report_requirement: 'Not Required', annual_report_renewal_date: '2027-01-01', source_urls: [' https://example.gov ', ''], document_paths: [' License.pdf ', ''],
   })
   assert.equal(payload.overall_status, undefined)
   assert.equal(payload.updated_by, undefined)
+  assert.equal(payload.data_confidence, undefined)
   assert.equal(payload.bond_amount, null)
   assert.deepEqual(payload.source_urls, ['https://example.gov'])
   assert.deepEqual(payload.document_paths, ['License.pdf'])
