@@ -2,7 +2,7 @@ import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { logout } from '../lib/auth'
-import { ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, complianceDocumentView, complianceIndicator, compliancePayload, complianceSummary, filterComplianceRows, normalizeComplianceEditor } from '../lib/compliance'
+import { ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REGISTER_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, complianceDocumentView, complianceIndicator, compliancePayload, complianceSummary, filterComplianceRows, normalizeComplianceEditor } from '../lib/compliance'
 import { formatDateTime12Hour } from '../lib/time'
 
 const REQUIREMENTS = COMPLIANCE_REQUIREMENTS
@@ -64,7 +64,7 @@ export default function Compliance() {
               <input aria-label="Search compliance states" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search state, regulator, number..." className={`${inputClass} sm:w-64`} />
               <select aria-label="Show compliance type" value={selectedAttachmentType} onChange={e => setSelectedAttachmentType(e.target.value)} className={inputClass}>
                 <option value="all">All compliance types</option>
-                {COMPLIANCE_ATTACHMENT_TYPES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                {COMPLIANCE_REGISTER_TYPES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
               <select aria-label="Filter compliance status" value={status} onChange={e => setStatus(e.target.value)} className={inputClass}>
                 <option value="all">All statuses</option>

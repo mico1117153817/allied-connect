@@ -1,7 +1,11 @@
-export const COMPLIANCE_ATTACHMENT_TYPES = [
+export const COMPLIANCE_REGISTER_TYPES = [
   { value: 'license', label: 'Licenses' },
   { value: 'certificate_of_authority', label: 'Certificate of Authority' },
   { value: 'bond', label: 'Bonds' },
+]
+
+export const COMPLIANCE_ATTACHMENT_TYPES = [
+  ...COMPLIANCE_REGISTER_TYPES,
   { value: 'annual_report', label: 'Annual Reports' },
   { value: 'filing_receipt', label: 'Filing Receipts' },
 ]
@@ -41,14 +45,22 @@ export function filterComplianceRows(rows = [], status = 'all', search = '') {
 }
 
 export function complianceDocumentView(rows = [], selectedType = 'all') {
-  const uploadType = COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === selectedType) ? selectedType : 'license'
+  const requirementField = {
+    license: 'collection_license_requirement',
+    certificate_of_authority: 'coa_requirement',
+    bond: 'bond_requirement',
+  }[selectedType]
+  const visibleRows = requirementField
+    ? rows.filter(row => row[requirementField] === 'Required')
+    : rows
+  const uploadType = COMPLIANCE_REGISTER_TYPES.some(option => option.value === selectedType) ? selectedType : 'license'
   return {
-    rows,
+    rows: visibleRows,
     showLicense: selectedType === 'all' || selectedType === 'license',
     showCoa: selectedType === 'all' || selectedType === 'certificate_of_authority',
     showBond: selectedType === 'all' || selectedType === 'bond',
-    showAnnualReport: selectedType === 'all' || selectedType === 'annual_report',
-    showFilingReceipt: selectedType === 'all' || selectedType === 'filing_receipt',
+    showAnnualReport: false,
+    showFilingReceipt: false,
     uploadType,
   }
 }

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REGISTER_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
@@ -61,11 +61,16 @@ test('legacy values require an explicit supported selection before save', () => 
   assert.equal(normalized.bond_status, '')
 })
 
-test('document type selection keeps states populated and focuses the selected compliance column', () => {
-  const statesWithoutPdfs = rows.map(row => ({ ...row, attachments: { license: [], certificate_of_authority: [], bond: [], annual_report: [], filing_receipt: [] } }))
+test('compliance type selection shows only states where the selected item is required', () => {
+  const requirementRows = [
+    { state: 'Alabama', collection_license_requirement: 'Required', coa_requirement: 'Not Required', bond_requirement: 'Not Required', attachments: {} },
+    { state: 'New York', collection_license_requirement: 'Not Required', coa_requirement: 'Required', bond_requirement: 'Not Required', attachments: {} },
+    { state: 'Wyoming', collection_license_requirement: 'Required', coa_requirement: 'Required', bond_requirement: 'Required', attachments: {} },
+    { state: 'Texas', collection_license_requirement: 'Not Required', coa_requirement: 'Not Required', bond_requirement: 'Not Required', attachments: {} },
+  ]
 
-  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'license'), {
-    rows: statesWithoutPdfs,
+  assert.deepEqual(complianceDocumentView(requirementRows, 'license'), {
+    rows: [requirementRows[0], requirementRows[2]],
     showLicense: true,
     showCoa: false,
     showBond: false,
@@ -73,8 +78,8 @@ test('document type selection keeps states populated and focuses the selected co
     showFilingReceipt: false,
     uploadType: 'license',
   })
-  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'certificate_of_authority'), {
-    rows: statesWithoutPdfs,
+  assert.deepEqual(complianceDocumentView(requirementRows, 'certificate_of_authority'), {
+    rows: [requirementRows[1], requirementRows[2]],
     showLicense: false,
     showCoa: true,
     showBond: false,
@@ -82,8 +87,8 @@ test('document type selection keeps states populated and focuses the selected co
     showFilingReceipt: false,
     uploadType: 'certificate_of_authority',
   })
-  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'bond'), {
-    rows: statesWithoutPdfs,
+  assert.deepEqual(complianceDocumentView(requirementRows, 'bond'), {
+    rows: [requirementRows[2]],
     showLicense: false,
     showCoa: false,
     showBond: true,
@@ -91,24 +96,20 @@ test('document type selection keeps states populated and focuses the selected co
     showFilingReceipt: false,
     uploadType: 'bond',
   })
-  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'annual_report'), {
-    rows: statesWithoutPdfs,
-    showLicense: false,
-    showCoa: false,
-    showBond: false,
-    showAnnualReport: true,
-    showFilingReceipt: false,
-    uploadType: 'annual_report',
-  })
-  assert.deepEqual(complianceDocumentView(statesWithoutPdfs, 'filing_receipt'), {
-    rows: statesWithoutPdfs,
-    showLicense: false,
-    showCoa: false,
-    showBond: false,
+  assert.deepEqual(complianceDocumentView(requirementRows, 'all'), {
+    rows: requirementRows,
+    showLicense: true,
+    showCoa: true,
+    showBond: true,
     showAnnualReport: false,
-    showFilingReceipt: true,
-    uploadType: 'filing_receipt',
+    showFilingReceipt: false,
+    uploadType: 'license',
   })
+  assert.deepEqual(COMPLIANCE_REGISTER_TYPES, [
+    { value: 'license', label: 'Licenses' },
+    { value: 'certificate_of_authority', label: 'Certificate of Authority' },
+    { value: 'bond', label: 'Bonds' },
+  ])
   assert.ok(COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === 'annual_report' && option.label === 'Annual Reports'))
   assert.ok(COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === 'filing_receipt' && option.label === 'Filing Receipts'))
 })
