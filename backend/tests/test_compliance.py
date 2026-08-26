@@ -661,6 +661,43 @@ def test_seed_preserves_populated_legacy_values_without_audit_marker(harness):
     assert rows["Delaware"]["license_number"] == "LEGACY-KEEP"
 
 
+def test_auditless_seed_migration_does_not_depend_on_legacy_confidence(harness):
+    client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+
+    def migrated_result(confidence):
+        with next(dependency()) as db:
+            row = db.query(compliance_router.StateCompliance).filter_by(state="Washington").one()
+            for field in (
+                "license_number", "license_issue_date", "license_expiration", "license_renewal_due",
+                "coa_number", "coa_issue_date", "bond_number", "bond_amount", "bond_expiration",
+                "regulator", "notes", "source_urls_json", "document_paths_json",
+            ):
+                setattr(row, field, None)
+            row.updated_by = None
+            row.data_confidence = confidence
+            row.collection_license_requirement = "Required"
+            row.license_status = "Not Held"
+            row.coa_requirement = "Unknown"
+            row.coa_status = "Unknown"
+            row.certificate_of_authority = False
+            row.bond_requirement = "Unknown"
+            row.bond_status = "Unknown"
+            db.commit()
+        row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Washington"]
+        return row["overall_status"], row["indicator"], row["issues"]
+
+    unverified = migrated_result("Unverified")
+    verified = migrated_result("Verified")
+    assert unverified == verified
+    assert verified == (
+        "Needs Review",
+        "yellow",
+        ["Certificate of Authority requirement is Conditional"],
+    )
+
+
 def test_seed_preserves_legacy_status_values_without_numbers(harness):
     client, _ = harness
     client.get("/api/compliance")

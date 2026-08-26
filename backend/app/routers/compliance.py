@@ -114,7 +114,7 @@ def _merge_matrix_seed(row: StateCompliance, seed: dict) -> bool:
         if field in DATE_FIELDS:
             value = date.fromisoformat(value)
         current = getattr(row, field, None)
-        if current in (None, "") or (field.endswith("_requirement") and current == "Unknown") or (field in {"coa_status", "bond_status"} and current == "Unknown") or (field == "data_confidence" and current == "Unverified"):
+        if current in (None, "") or (field.endswith("_requirement") and current == "Unknown") or (field in {"coa_status", "bond_status"} and current == "Unknown"):
             setattr(row, field, value)
             changed = True
     if row.coa_status in {"Active", "Perpetual"} and not row.certificate_of_authority:
@@ -147,7 +147,7 @@ def _ensure_states(db: Session):
             if state in seeds:
                 _seed_row(row, seeds[state])
             changed = True
-        elif row.updated_by is None and row.data_confidence == "Unverified" and state in seeds and _row_is_empty(row):
+        elif row.updated_by is None and state in seeds and _row_is_empty(row):
             _seed_row(row, seeds[state])
             changed = True
         elif row.updated_by is None and state in seeds and _merge_matrix_seed(row, seeds[state]):
