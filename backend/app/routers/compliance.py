@@ -257,8 +257,6 @@ def _review_issues(row: StateCompliance, overall_status: str) -> list[str]:
     ):
         if requirement in {"Unknown", "Conditional", "Local Only"}:
             issues.append(f"{label} requirement is {requirement}")
-    if row.data_confidence == "Unverified":
-        issues.append("Compliance record requires verification")
     return list(dict.fromkeys(issues))
 
 
@@ -287,7 +285,6 @@ def _overall(row: StateCompliance) -> tuple[str, str]:
 
 def _serialize(db: Session, row: StateCompliance) -> dict:
     overall_status, indicator = _overall(row)
-    displayed_status = overall_status if row.data_confidence != "Unverified" else "Needs Review"
     return {
         "state": row.state,
         "jurisdiction": row.jurisdiction or row.state,
@@ -320,14 +317,14 @@ def _serialize(db: Session, row: StateCompliance) -> dict:
         "state_portal_url": row.state_portal_url,
         "portal_username": row.portal_username,
         "has_portal_password": bool(row.portal_password_encrypted),
-        "issues": _review_issues(row, displayed_status),
+        "issues": _review_issues(row, overall_status),
         "attachments": _attachment_summary(db, row.state),
         "notes": row.notes,
         "source_urls": _loads_list(row.source_urls_json),
         "document_paths": _loads_list(row.document_paths_json),
         "data_confidence": row.data_confidence,
-        "overall_status": displayed_status,
-        "indicator": indicator if row.data_confidence != "Unverified" else "yellow",
+        "overall_status": overall_status,
+        "indicator": indicator,
         "updated_by": row.updated_by,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }

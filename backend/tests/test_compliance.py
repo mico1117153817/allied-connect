@@ -419,6 +419,13 @@ def test_annual_report_pdf_can_be_uploaded_viewed_and_deleted(harness):
 
 def test_needs_review_has_visible_issue_after_washington_annual_report_upload(harness):
     client, _ = harness
+    client.get("/api/compliance")
+    dependency = client.app.dependency_overrides[get_db]
+    with next(dependency()) as db:
+        washington = db.query(compliance_router.StateCompliance).filter_by(state="Washington").one()
+        washington.data_confidence = "Unverified"
+        washington.updated_by = "ADMIN"
+        db.commit()
     upload = client.post(
         "/api/compliance/Washington/attachments",
         files={"file": ("annual-report.pdf", b"%PDF-1.4 annual report", "application/pdf")},
@@ -427,8 +434,7 @@ def test_needs_review_has_visible_issue_after_washington_annual_report_upload(ha
     assert upload.status_code == 201, upload.text
     row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Washington"]
     assert row["overall_status"] == "Needs Review"
-    assert row["issues"]
-    assert "Certificate of Authority requirement is Conditional" in row["issues"]
+    assert row["issues"] == ["Certificate of Authority requirement is Conditional"]
 
 
 def test_attachment_delete_requires_matching_state(harness):
@@ -592,6 +598,21 @@ def test_active_indicator_requires_all_known_requirements_to_be_satisfied(harnes
     row = response.json()
     assert row["overall_status"] == "Active"
     assert row["indicator"] == "green"
+
+
+def test_legacy_unverified_value_does_not_affect_status_or_issues(harness):
+    client, _ = harness
+    response = client.put("/api/compliance/Alabama", json={
+        "collection_license_requirement": "Not Required",
+        "coa_requirement": "Not Required",
+        "bond_requirement": "Not Required",
+        "data_confidence": "Unverified",
+    })
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert row["overall_status"] == "Active"
+    assert row["indicator"] == "green"
+    assert row["issues"] == []
 
 
 def test_missing_required_license_is_not_authorized(harness):
