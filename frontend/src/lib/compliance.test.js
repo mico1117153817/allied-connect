@@ -144,6 +144,13 @@ test('Compliance UI does not expose confidence', () => {
   assert.doesNotMatch(source, /Confidence|data_confidence/)
 })
 
+test('Compliance action cell only shows a generic Upload PDF action', () => {
+  const source = readFileSync(new URL('../pages/Compliance.jsx', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /<button onClick=\{onEdit\}[^>]*>Edit<\/button>/)
+  assert.doesNotMatch(source, /Upload \{uploadLabel\} PDF/)
+  assert.match(source, />Upload PDF<\/button>/)
+})
+
 test('empty annual report and filing receipt cells display NA', () => {
   assert.equal(complianceAttachmentLabel([], 'annual report'), 'NA')
   assert.equal(complianceAttachmentLabel(null, 'annual report'), 'NA')
