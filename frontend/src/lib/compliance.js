@@ -59,10 +59,22 @@ export function complianceDocumentView(rows = [], selectedType = 'all') {
     showLicense: selectedType === 'all' || selectedType === 'license',
     showCoa: selectedType === 'all' || selectedType === 'certificate_of_authority',
     showBond: selectedType === 'all' || selectedType === 'bond',
-    showAnnualReport: false,
-    showFilingReceipt: false,
+    showAnnualReport: selectedType === 'all',
+    showFilingReceipt: selectedType === 'all',
     uploadType,
   }
+}
+
+export function complianceRequirementDisplay(requirement, primary, secondary) {
+  if (requirement === 'Not Required') {
+    return { primary: 'Not Required', secondary: null, showAttachments: false }
+  }
+  return { primary, secondary, showAttachments: true }
+}
+
+export function complianceAttachmentLabel(attachments = []) {
+  if (!attachments?.length) return 'NA'
+  return `${attachments.length} PDF${attachments.length === 1 ? '' : 's'}`
 }
 
 export function complianceIndicator(row) {

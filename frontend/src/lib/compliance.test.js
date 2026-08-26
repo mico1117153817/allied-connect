@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REGISTER_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
+import { complianceSummary, filterComplianceRows, compliancePayload, complianceIndicator, complianceDocumentView, complianceRequirementDisplay, complianceAttachmentLabel, ANNUAL_REPORT_REQUIREMENTS, COMPLIANCE_ATTACHMENT_TYPES, COMPLIANCE_REGISTER_TYPES, COMPLIANCE_REQUIREMENTS, COMPLIANCE_STATUSES, normalizeComplianceEditor } from './compliance.js'
 
 const rows = [
   { state: 'Alabama', overall_status: 'Active', data_confidence: 'Verified', regulator: 'Secretary of State' },
@@ -101,8 +101,8 @@ test('compliance type selection shows only states where the selected item is req
     showLicense: true,
     showCoa: true,
     showBond: true,
-    showAnnualReport: false,
-    showFilingReceipt: false,
+    showAnnualReport: true,
+    showFilingReceipt: true,
     uploadType: 'license',
   })
   assert.deepEqual(COMPLIANCE_REGISTER_TYPES, [
@@ -112,6 +112,27 @@ test('compliance type selection shows only states where the selected item is req
   ])
   assert.ok(COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === 'annual_report' && option.label === 'Annual Reports'))
   assert.ok(COMPLIANCE_ATTACHMENT_TYPES.some(option => option.value === 'filing_receipt' && option.label === 'Filing Receipts'))
+})
+
+test('not-required compliance cells show only Not Required', () => {
+  assert.deepEqual(complianceRequirementDisplay('Not Required', 'Not Held', 'No license details required'), {
+    primary: 'Not Required',
+    secondary: null,
+    showAttachments: false,
+  })
+  assert.deepEqual(complianceRequirementDisplay('Required', 'Active', 'LIC-123'), {
+    primary: 'Active',
+    secondary: 'LIC-123',
+    showAttachments: true,
+  })
+})
+
+test('empty annual report and filing receipt cells display NA', () => {
+  assert.equal(complianceAttachmentLabel([], 'annual report'), 'NA')
+  assert.equal(complianceAttachmentLabel(null, 'annual report'), 'NA')
+  assert.equal(complianceAttachmentLabel([], 'filing receipt'), 'NA')
+  assert.equal(complianceAttachmentLabel([{}], 'annual report'), '1 PDF')
+  assert.equal(complianceAttachmentLabel([{}, {}], 'filing receipt'), '2 PDFs')
 })
 
 test('compliancePayload strips computed audit fields and normalizes editable values', () => {
