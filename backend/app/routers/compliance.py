@@ -246,6 +246,22 @@ def _expiration_issues(row: StateCompliance) -> list[str]:
     return issues
 
 
+def _review_issues(row: StateCompliance, overall_status: str) -> list[str]:
+    issues = _expiration_issues(row)
+    if overall_status != "Needs Review":
+        return issues
+    for label, requirement in (
+        ("License", row.collection_license_requirement),
+        ("Certificate of Authority", row.coa_requirement),
+        ("Bond", row.bond_requirement),
+    ):
+        if requirement in {"Unknown", "Conditional", "Local Only"}:
+            issues.append(f"{label} requirement is {requirement}")
+    if row.data_confidence == "Unverified":
+        issues.append("Compliance record requires verification")
+    return list(dict.fromkeys(issues))
+
+
 def _requirement_satisfied(requirement: str, status: str, active_statuses: set[str]) -> bool | None:
     if requirement == "Not Required":
         return True
@@ -271,6 +287,7 @@ def _overall(row: StateCompliance) -> tuple[str, str]:
 
 def _serialize(db: Session, row: StateCompliance) -> dict:
     overall_status, indicator = _overall(row)
+    displayed_status = overall_status if row.data_confidence != "Unverified" else "Needs Review"
     return {
         "state": row.state,
         "jurisdiction": row.jurisdiction or row.state,
@@ -303,13 +320,13 @@ def _serialize(db: Session, row: StateCompliance) -> dict:
         "state_portal_url": row.state_portal_url,
         "portal_username": row.portal_username,
         "has_portal_password": bool(row.portal_password_encrypted),
-        "issues": _expiration_issues(row),
+        "issues": _review_issues(row, displayed_status),
         "attachments": _attachment_summary(db, row.state),
         "notes": row.notes,
         "source_urls": _loads_list(row.source_urls_json),
         "document_paths": _loads_list(row.document_paths_json),
         "data_confidence": row.data_confidence,
-        "overall_status": overall_status if row.data_confidence != "Unverified" else "Needs Review",
+        "overall_status": displayed_status,
         "indicator": indicator if row.data_confidence != "Unverified" else "yellow",
         "updated_by": row.updated_by,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,

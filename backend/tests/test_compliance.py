@@ -417,6 +417,20 @@ def test_annual_report_pdf_can_be_uploaded_viewed_and_deleted(harness):
     assert row["attachments"]["annual_report"] == []
 
 
+def test_needs_review_has_visible_issue_after_washington_annual_report_upload(harness):
+    client, _ = harness
+    upload = client.post(
+        "/api/compliance/Washington/attachments",
+        files={"file": ("annual-report.pdf", b"%PDF-1.4 annual report", "application/pdf")},
+        data={"item_type": "annual_report"},
+    )
+    assert upload.status_code == 201, upload.text
+    row = {item["state"]: item for item in client.get("/api/compliance").json()["states"]}["Washington"]
+    assert row["overall_status"] == "Needs Review"
+    assert row["issues"]
+    assert "Certificate of Authority requirement is Conditional" in row["issues"]
+
+
 def test_attachment_delete_requires_matching_state(harness):
     client, _ = harness
     attachment = client.post(
@@ -547,8 +561,17 @@ def test_compliance_register_exposes_requirement_and_indicator_fields(harness):
     assert row["coa_requirement"] == "Conditional"
     assert row["coa_status"] == "Perpetual"
     assert row["overall_status"] == "Needs Review"
+    assert row["issues"]
     assert row["source_urls"]
     assert row["document_paths"]
+
+
+def test_every_needs_review_state_has_a_visible_issue(harness):
+    client, _ = harness
+    states = client.get("/api/compliance").json()["states"]
+    needs_review = [row for row in states if row["overall_status"] == "Needs Review"]
+    assert needs_review
+    assert all(row["issues"] for row in needs_review)
 
 
 def test_active_indicator_requires_all_known_requirements_to_be_satisfied(harness):
