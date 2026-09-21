@@ -11,7 +11,7 @@ from app.config import settings
 from app.models.compliance_attachment import ComplianceAttachment
 from app.models.database import Base, engine, SessionLocal
 from app.models.employee import Employee, ensure_employee_schema
-from app.models.state_compliance import ensure_state_compliance_schema
+from app.models.compliance_migration import assert_compliance_schema_ready
 from app.routers import auth, employee, time_off, manager, documents, settings as settings_router, compliance
 from app.services.scheduler import start_scheduler
 from app.services.settings_service import init_defaults
@@ -108,10 +108,11 @@ async def bootstrap_managers():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables and safely add columns introduced after initial deployment.
+    # Fail closed before ANY schema write on a legacy compliance database.
+    # An operator must run the backed-up offline migration first.
+    assert_compliance_schema_ready(engine)
     Base.metadata.create_all(bind=engine)
     ensure_employee_schema(engine)
-    ensure_state_compliance_schema(engine)
     # Seed default settings
     db = SessionLocal()
     try:

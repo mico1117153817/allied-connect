@@ -795,6 +795,11 @@ def test_super_admin_can_update_state_compliance(harness):
 
 def test_admin_can_view_and_update_compliance(harness):
     client, current = harness
+    from app.models.compliance_company import CompanyPermission
+    client.get('/api/compliance')
+    with next(client.app.dependency_overrides[get_db]()) as db:
+        db.add(CompanyPermission(employee_id='ADMIN_ROLE', company_id=1, can_edit=True))
+        db.commit()
     current["user"] = {"timestation_id": "ADMIN_ROLE", "name": "Compliance Admin", "role": "admin"}
     assert client.get("/api/compliance").status_code == 200
     response = client.put("/api/compliance/Alabama", json={

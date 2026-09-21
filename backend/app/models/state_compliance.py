@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, inspect
+from sqlalchemy import Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, UniqueConstraint, ForeignKey, inspect
 from sqlalchemy.sql import func
 
 from app.models.database import Base
@@ -8,7 +8,9 @@ class StateCompliance(Base):
     __tablename__ = "state_compliance"
 
     id = Column(Integer, primary_key=True, index=True)
-    state = Column(String, unique=True, nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("compliance_companies.id"), nullable=False, default=1, index=True)
+    __table_args__ = (UniqueConstraint("company_id", "state", name="uq_compliance_company_state"),)
+    state = Column(String, nullable=False, index=True)
     jurisdiction = Column(String, nullable=True)
     collection_license_requirement = Column(String, nullable=False, default="Unknown")
     license_status = Column(String, nullable=False, default="Not Held")
@@ -24,6 +26,9 @@ class StateCompliance(Base):
     bond_requirement = Column(String, nullable=False, default="Unknown")
     bond_status = Column(String, nullable=False, default="Unknown")
     bond_number = Column(String, nullable=True)
+    bond_requirement_amount = Column(Numeric(12, 2), nullable=True)
+    renewal_structure = Column(Text)
+    general_requirement_notes = Column(Text)
     bond_amount = Column(Numeric(12, 2), nullable=True)
     bond_expiration = Column(Date, nullable=True)
     annual_report_requirement = Column(String, nullable=False, default="Not Required")

@@ -6,14 +6,18 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.config import settings
 from app.models.compliance_attachment import ComplianceAttachment
+from app.models.compliance_audit import ComplianceAudit, snapshot, audit_diff, audit_event
+from app.models.compliance_company import ComplianceCompany, CompanyPermission, CompanyLogo
 from app.models.database import get_db
 from app.models.setting import Setting
 from app.models.state_compliance import StateCompliance
+from app.models.employee import Employee
 from app.routers.auth import require_compliance_access, require_manager
 
 router = APIRouter(prefix="/api/compliance", tags=["compliance"])
@@ -57,6 +61,9 @@ class ComplianceInput(BaseModel):
     bond_requirement: str = "Not Required"
     bond_status: str = "Not Held"
     bond_number: str | None = None
+    bond_requirement_amount: float | None = Field(None, ge=0)
+    renewal_structure: str | None = None
+    general_requirement_notes: str | None = None
     bond_amount: float | None = Field(None, ge=0)
     bond_expiration: date | None = None
     annual_report_requirement: str = "Not Required"
@@ -131,17 +138,32 @@ def _merge_matrix_seed(row: StateCompliance, seed: dict) -> bool:
     return changed
 
 
-def _ensure_states(db: Session):
-    rows = {row.state: row for row in db.query(StateCompliance).all()}
+def _default_company(db):
+    company = db.get(ComplianceCompany, 1)
+    if company is None:
+        company = ComplianceCompany(id=1, legal_name="Allied Alliance Group Inc.")
+        db.add(company)
+        db.flush()
+        for employee in db.query(Employee).filter_by(role="admin"):
+            db.add(CompanyPermission(employee_id=employee.timestation_id, company_id=1, can_edit=True))
+        db.flush()
+    return company
+
+
+def _ensure_states(db: Session, company_id: int = 1, commit: bool = True):
+    company = _default_company(db) if company_id == 1 else db.get(ComplianceCompany, company_id)
+    rows = {row.state: row for row in db.query(StateCompliance).filter_by(company_id=company_id).all()}
     seeds = {}
-    if SEED_PATH.exists():
+    if company_id == 1 and not company.legacy_preserved and SEED_PATH.exists():
         seeds = {item["state"]: item for item in json.loads(SEED_PATH.read_text(encoding="utf-8"))}
 
     changed = False
     for state in STATES:
         row = rows.get(state)
         if row is None:
-            row = StateCompliance(state=state)
+            row = StateCompliance(state=state, company_id=company_id)
+            if company_id != 1:
+                row.license_status = row.coa_status = row.bond_status = 'Not Held'
             db.add(row)
             rows[state] = row
             if state in seeds:
@@ -152,25 +174,30 @@ def _ensure_states(db: Session):
             changed = True
         elif row.updated_by is None and state in seeds and _merge_matrix_seed(row, seeds[state]):
             changed = True
-        if not row.state_portal_url_migrated:
+        if not company.legacy_preserved and not row.state_portal_url_migrated:
             legacy_urls = _loads_list(row.source_urls_json)
             if not row.state_portal_url and legacy_urls:
                 row.state_portal_url = legacy_urls[0]
             row.state_portal_url_migrated = True
             changed = True
-    if changed:
+    if changed and commit:
         db.commit()
 
 
-def _attachment_summary(db: Session, state: str) -> dict[str, list[dict]]:
+def _attachment_summary(db: Session, state: str, company_id: int = 1, include_archived: bool = False) -> dict[str, list[dict]]:
     result = {item_type: [] for item_type in ITEM_TYPES}
-    rows = db.query(ComplianceAttachment).filter(ComplianceAttachment.state == state).order_by(ComplianceAttachment.created_at.desc(), ComplianceAttachment.id.desc()).all()
+    query = db.query(ComplianceAttachment).filter(ComplianceAttachment.state == state, ComplianceAttachment.company_id == company_id)
+    if not include_archived:
+        query = query.filter(ComplianceAttachment.archived_at.is_(None))
+    rows = query.order_by(ComplianceAttachment.created_at.desc(), ComplianceAttachment.id.desc()).all()
     for row in rows:
         result[row.item_type].append({
             "id": row.id, "item_type": row.item_type, "label": ITEM_LABELS[row.item_type],
             "filename": row.filename, "content_type": row.content_type,
             "created_at": row.created_at.isoformat() if row.created_at else None,
-            "view_url": f"/api/compliance/{state}/attachments/{row.id}/view",
+            "archived_at": row.archived_at.isoformat() if row.archived_at else None,
+            "is_archived": row.archived_at is not None,
+            "view_url": f"/api/compliance/{state}/attachments/{row.id}/view?company_id={company_id}" + ('&include_archived=true' if row.archived_at else ''),
         })
     return result
 
@@ -191,10 +218,13 @@ def _credential_key(db: Session) -> bytes:
     else:
         row = db.query(Setting).filter(Setting.key == "compliance_credential_key").first()
         if not row:
-            raw = Fernet.generate_key().decode("ascii")
-            row = Setting(key="compliance_credential_key", value=raw, description="Persistent encryption key for compliance portal credentials")
-            db.add(row)
-            db.commit()
+            # The caller owns the transaction: never commit a partially edited row here.
+            # ON CONFLICT serializes concurrent first-key creation on SQLite/PostgreSQL.
+            db.execute(text("INSERT INTO settings (key, value, description) VALUES (:key, :value, :description) ON CONFLICT (key) DO NOTHING"), {
+                "key": "compliance_credential_key", "value": Fernet.generate_key().decode("ascii"),
+                "description": "Persistent encryption key for compliance portal credentials",
+            })
+            raw = db.execute(text("SELECT value FROM settings WHERE key=:key"), {"key": "compliance_credential_key"}).scalar_one()
         else:
             raw = row.value
     try:
@@ -286,6 +316,10 @@ def _overall(row: StateCompliance) -> tuple[str, str]:
 def _serialize(db: Session, row: StateCompliance) -> dict:
     overall_status, indicator = _overall(row)
     return {
+        "company_id": row.company_id,
+        "bond_requirement_amount": float(row.bond_requirement_amount) if row.bond_requirement_amount is not None else None,
+        "renewal_structure": row.renewal_structure,
+        "general_requirement_notes": row.general_requirement_notes,
         "state": row.state,
         "jurisdiction": row.jurisdiction or row.state,
         "collection_license_requirement": row.collection_license_requirement,
@@ -318,7 +352,7 @@ def _serialize(db: Session, row: StateCompliance) -> dict:
         "portal_username": row.portal_username,
         "has_portal_password": bool(row.portal_password_encrypted),
         "issues": _review_issues(row, overall_status),
-        "attachments": _attachment_summary(db, row.state),
+        "attachments": _attachment_summary(db, row.state, row.company_id),
         "notes": row.notes,
         "source_urls": _loads_list(row.source_urls_json),
         "document_paths": _loads_list(row.document_paths_json),
@@ -330,25 +364,216 @@ def _serialize(db: Session, row: StateCompliance) -> dict:
     }
 
 
-@router.get("")
-async def list_compliance(user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+REQUIREMENT_COPY_FIELDS = (
+    "jurisdiction", "collection_license_requirement", "coa_requirement", "bond_requirement",
+    "bond_requirement_amount", "annual_report_requirement", "renewal_structure",
+    "regulator", "state_portal_url", "general_requirement_notes",
+)
+
+
+class CompanyInput(BaseModel):
+    legal_name: str = Field(min_length=1, max_length=300)
+    dba_name: str | None = None
+    entity_type: str | None = None
+    ein: str | None = None
+    formation_state: str | None = None
+    formation_date: date | None = None
+    business_address: str | None = None
+    mailing_address: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    registered_agent: str | None = None
+    registered_agent_address: str | None = None
+    notes: str | None = None
+    is_active: bool = True
+    copy_from_company_id: int | None = None
+
+    @field_validator('legal_name', mode='before')
+    @classmethod
+    def validate_legal_name(cls, value):
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError('Legal company name is required')
+        return value.strip()
+
+
+class CompanyUpdate(CompanyInput):
+    legal_name: str | None = Field(None, min_length=1, max_length=300)
+
+
+def _company_json(company):
+    return {c.name: getattr(company, c.name) for c in company.__table__.columns if c.name != 'legacy_preserved'}
+
+
+def _rights(db, user, company_id):
+    if user.get("role") == "super_admin":
+        return True, True
+    if user.get("role") != "admin":
+        return False, False
+    permission = db.query(CompanyPermission).filter_by(employee_id=user.get("timestation_id"), company_id=company_id).first()
+    if permission:
+        return True, permission.can_edit
+    return False, False
+
+
+def _company_access(db, user, company_id, write=False):
+    company = _default_company(db) if company_id == 1 else db.get(ComplianceCompany, company_id)
+    if company is None:
+        raise HTTPException(404, 'Company not found')
+    visible, editable = _rights(db, user, company_id)
+    if not visible or (write and (not editable or not company.is_active)):
+        raise HTTPException(403, 'Company access denied or company archived')
+    return company
+
+
+def _summary(db, company_id):
+    rows = db.query(StateCompliance).filter_by(company_id=company_id).all()
+    result = dict.fromkeys(('total', 'active', 'needs_review', 'not_authorized',
+                           'licenses_expiring_30', 'licenses_expiring_60', 'licenses_expiring_90',
+                           'bonds_expiring_soon', 'annual_reports_due_soon', 'open_issues', 'expiring_soon'), 0)
+    def soon(value, days=90):
+        return value is not None and 0 <= (value - date.today()).days <= days
+    for row in rows:
+        status, _ = _overall(row)
+        result['total'] += 1
+        result[status.lower().replace(' ', '_')] += 1
+        result['open_issues'] += bool(_review_issues(row, status))
+        license_soon = row.collection_license_requirement == 'Required' and soon(row.license_expiration)
+        bond_soon = row.bond_requirement == 'Required' and soon(row.bond_expiration)
+        report_soon = row.annual_report_requirement != 'Not Required' and soon(row.annual_report_renewal_date or row.annual_report_due_date)
+        for days in (30, 60, 90):
+            result[f'licenses_expiring_{days}'] += row.collection_license_requirement == 'Required' and soon(row.license_expiration, days)
+        result['bonds_expiring_soon'] += bond_soon
+        result['annual_reports_due_soon'] += report_soon
+        result['expiring_soon'] += bool(license_soon or bond_soon or report_soon)
+    return result
+
+
+def _company_result(db, user, company):
+    return {**_company_json(company), 'summary': _summary(db, company.id), 'can_edit': bool(company.is_active and _rights(db, user, company.id)[1]),
+            'can_manage': bool(_rights(db, user, company.id)[1])}
+
+
+@router.get('/companies')
+async def list_companies(user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
     _ensure_states(db)
-    rows = db.query(StateCompliance).order_by(StateCompliance.state).all()
-    return {"states": [_serialize(db, row) for row in rows]}
+    return {'companies': [_company_result(db, user, c) for c in db.query(ComplianceCompany).order_by(ComplianceCompany.id) if _rights(db, user, c.id)[0]],
+            'can_manage': True, 'is_super_admin': user.get('role') == 'super_admin'}
+
+
+@router.post('/companies', status_code=201)
+async def create_company(payload: CompanyInput, user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+    _ensure_states(db)
+    if payload.copy_from_company_id is not None:
+        _company_access(db, user, payload.copy_from_company_id)
+    company = ComplianceCompany(**payload.model_dump(exclude={'copy_from_company_id'}))
+    db.add(company)
+    db.flush()
+    db.add(CompanyPermission(employee_id=user.get("timestation_id"), company_id=company.id, can_edit=True))
+    _ensure_states(db, company.id, commit=False)
+    db.flush()
+    if payload.copy_from_company_id is not None:
+        _company_access(db, user, payload.copy_from_company_id)
+        source = {r.state: r for r in db.query(StateCompliance).filter_by(company_id=payload.copy_from_company_id)}
+        for row in db.query(StateCompliance).filter_by(company_id=company.id):
+            if row.state in source:
+                for field in REQUIREMENT_COPY_FIELDS:
+                    setattr(row, field, getattr(source[row.state], field))
+    db.commit()
+    return _company_json(company)
+
+
+@router.post("/companies/{company_id}/logo")
+async def upload_company_logo(company_id: int, file: UploadFile = File(...), user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+    from io import BytesIO
+    from PIL import Image, UnidentifiedImageError
+    company = _company_access(db, user, company_id, write=True)
+    content = await file.read(5 * 1024 * 1024 + 1)
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Logo exceeds 5 MiB")
+    try:
+        image = Image.open(BytesIO(content))
+        if image.format not in {"PNG", "JPEG"} or image.width * image.height > 16_000_000:
+            raise ValueError("Invalid image format or dimensions")
+        mime = "image/png" if image.format == "PNG" else "image/jpeg"
+        image.load()
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise HTTPException(400, "Logo must be a valid PNG or JPEG") from exc
+    logo = db.get(CompanyLogo, company_id)
+    old_hash = hashlib.sha256(logo.content).hexdigest() if logo else None
+    if logo is None:
+        logo = CompanyLogo(company_id=company_id)
+        db.add(logo)
+    logo.content, logo.content_type = content, mime
+    new_hash = hashlib.sha256(content).hexdigest()
+    company.logo_path = f"/api/compliance/companies/{company_id}/logo?v={new_hash}"
+    if old_hash != new_hash:
+        audit_event(db, user, company_id, None, "logo.upload", old_hash, new_hash)
+    db.commit()
+    return _company_result(db, user, company)
+
+
+@router.get("/companies/{company_id}/logo")
+async def view_company_logo(company_id: int, user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+    _company_access(db, user, company_id)
+    logo = db.get(CompanyLogo, company_id)
+    if logo is None:
+        raise HTTPException(404, "Logo not found")
+    return Response(content=logo.content, media_type=logo.content_type,
+                    headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"})
+
+
+@router.get("/companies/{company_id}/audit")
+async def company_audit(company_id: int, state: str | None = None, user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+    _company_access(db, user, company_id)
+    query = db.query(ComplianceAudit).filter_by(company_id=company_id)
+    if state is not None:
+        query = query.filter_by(state=state)
+    return {"events": [{key: getattr(e, key) for key in ("id", "user_name", "state", "field", "old_value", "new_value", "created_at")}
+                       for e in query.order_by(ComplianceAudit.id.desc())]}
+
+
+@router.get("/companies/{company_id}")
+async def get_company(company_id: int, user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+    return _company_result(db, user, _company_access(db, user, company_id))
+
+
+@router.put("/companies/{company_id}")
+async def update_company(company_id: int, payload: CompanyUpdate, user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+    company = _company_access(db, user, company_id)
+    if not _rights(db, user, company_id)[1]:
+        raise HTTPException(403, "Company management denied")
+    before = snapshot(company)
+    for field, value in payload.model_dump(exclude_unset=True, exclude={"copy_from_company_id"}).items():
+        setattr(company, field, value)
+    audit_diff(db, user, company_id, None, before, company)
+    db.commit()
+    return _company_result(db, user, company)
+
+
+@router.get("")
+async def list_compliance(company_id: int = 1, user: dict = Depends(require_compliance_access), db: Session = Depends(get_db)):
+    company = _company_access(db, user, company_id)
+    _ensure_states(db, company_id)
+    rows = db.query(StateCompliance).filter_by(company_id=company_id).order_by(StateCompliance.state).all()
+    return {"states": [_serialize(db, row) for row in rows], "company": _company_json(company), "can_edit": bool(company.is_active and _rights(db, user, company_id)[1])}
 
 
 @router.get("/{state}/attachments")
 async def list_compliance_attachments(
     state: str,
     item_type: str | None = None,
+    include_archived: bool = False,
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
+    _company_access(db, user, company_id)
     if state not in STATES:
         raise HTTPException(404, "State not found")
     if item_type is not None and item_type not in ITEM_TYPES:
         raise HTTPException(400, "Invalid compliance attachment item type")
-    summary = _attachment_summary(db, state)
+    summary = _attachment_summary(db, state, company_id, include_archived)
     return {"attachments": [item for key, items in summary.items() if item_type is None or key == item_type for item in items]}
 
 
@@ -359,7 +584,9 @@ async def upload_compliance_attachment(
     file: UploadFile = File(...),
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
+    _company_access(db, user, company_id, write=True)
     if state not in STATES or item_type not in ITEM_TYPES:
         raise HTTPException(400, "Invalid state or compliance attachment item type")
     filename = file.filename or "attachment.pdf"
@@ -368,11 +595,13 @@ async def upload_compliance_attachment(
     content = await file.read()
     if not content.startswith(b"%PDF"):
         raise HTTPException(400, "The uploaded file is not a valid PDF")
-    attachment = ComplianceAttachment(state=state, item_type=item_type, filename=filename.replace("/", "_").replace("\\", "_"), content_type="application/pdf", content=content, uploaded_by=user.get("timestation_id"))
+    attachment = ComplianceAttachment(company_id=company_id, state=state, item_type=item_type, filename=filename.replace("/", "_").replace("\\", "_"), content_type="application/pdf", content=content, uploaded_by=user.get("timestation_id"))
     db.add(attachment)
+    db.flush()
+    audit_event(db, user, company_id, state, "attachment.upload", None, f"{attachment.id}: {attachment.filename}")
     db.commit()
     db.refresh(attachment)
-    return {"attachment": _attachment_summary(db, state)[item_type][0]}
+    return {"attachment": _attachment_summary(db, state, company_id)[item_type][0]}
 
 
 @router.get("/{state}/attachments/{attachment_id}/view")
@@ -380,11 +609,14 @@ async def view_compliance_attachment(
     state: str,
     attachment_id: int,
     response: Response,
+    include_archived: bool = False,
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
-    row = db.query(ComplianceAttachment).filter(ComplianceAttachment.id == attachment_id, ComplianceAttachment.state == state).first()
-    if not row:
+    _company_access(db, user, company_id)
+    row = db.query(ComplianceAttachment).filter(ComplianceAttachment.id == attachment_id, ComplianceAttachment.state == state, ComplianceAttachment.company_id == company_id).first()
+    if not row or (row.archived_at is not None and not include_archived):
         raise HTTPException(404, "Compliance attachment not found")
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
     response.headers["Pragma"] = "no-cache"
@@ -397,11 +629,16 @@ async def delete_compliance_attachment(
     attachment_id: int,
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
-    row = db.query(ComplianceAttachment).filter(ComplianceAttachment.id == attachment_id, ComplianceAttachment.state == state).first()
+    _company_access(db, user, company_id, write=True)
+    row = db.query(ComplianceAttachment).filter(ComplianceAttachment.id == attachment_id, ComplianceAttachment.state == state, ComplianceAttachment.company_id == company_id).first()
     if not row:
         raise HTTPException(404, "Compliance attachment not found")
-    db.delete(row)
+    if row.archived_at is None:
+        row.archived_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        row.archived_by = user.get("timestation_id")
+        audit_event(db, user, company_id, state, "attachment.archive", row.filename, f"{row.id}: archived")
     db.commit()
     return Response(status_code=204)
 
@@ -410,16 +647,19 @@ async def delete_compliance_attachment(
 async def get_portal_credentials(
     state: str,
     response: Response,
+    include_archived: bool = False,
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
+    _company_access(db, user, company_id)
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     if state not in STATES:
         raise HTTPException(404, "State not found")
-    _ensure_states(db)
-    row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
+    _ensure_states(db, company_id)
+    row = db.query(StateCompliance).filter_by(state=state, company_id=company_id).one()
     return {
         "username": row.portal_username,
         "password": _decrypt_password(db, row.portal_password_encrypted) if row.portal_password_encrypted else None,
@@ -432,7 +672,9 @@ async def update_compliance(
     payload: ComplianceInput,
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
+    _company_access(db, user, company_id, write=True)
     if state not in STATES:
         raise HTTPException(404, "State not found")
     if payload.collection_license_requirement not in EDITABLE_REQUIREMENTS or payload.coa_requirement not in EDITABLE_REQUIREMENTS or payload.bond_requirement not in EDITABLE_REQUIREMENTS:
@@ -447,8 +689,9 @@ async def update_compliance(
         raise HTTPException(400, "Invalid confidence value")
     if payload.annual_report_requirement not in ANNUAL_REPORT_REQUIREMENTS:
         raise HTTPException(400, "Annual report requirement must be Not Required, Annual, or Bi-Annual")
-    _ensure_states(db)
-    row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
+    _ensure_states(db, company_id)
+    row = db.query(StateCompliance).filter_by(state=state, company_id=company_id).one()
+    before = snapshot(row)
     values = payload.model_dump(exclude={"source_urls", "document_paths", "portal_password"})
     for field, value in values.items():
         setattr(row, field, value)
@@ -482,6 +725,7 @@ async def update_compliance(
         row.annual_report_due_date = None
         row.annual_report_renewal_date = None
     row.updated_by = user.get("timestation_id")
+    audit_diff(db, user, company_id, state, before, row)
     db.commit()
     db.refresh(row)
     return _serialize(db, row)
@@ -492,11 +736,14 @@ async def complete_annual_report(
     state: str,
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
+    _company_access(db, user, company_id, write=True)
     if state not in STATES:
         raise HTTPException(404, "State not found")
-    _ensure_states(db)
-    row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
+    _ensure_states(db, company_id)
+    row = db.query(StateCompliance).filter_by(state=state, company_id=company_id).one()
+    before = snapshot(row)
     row.annual_report_completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
     row.annual_report_completed_by = user.get("timestation_id")
     row.annual_report_completed_by_name = user.get("name")
@@ -504,6 +751,7 @@ async def complete_annual_report(
     row.annual_report_completion_removed_by = None
     row.annual_report_completion_removed_by_name = None
     row.updated_by = user.get("timestation_id")
+    audit_diff(db, user, company_id, state, before, row)
     db.commit()
     db.refresh(row)
     return _serialize(db, row)
@@ -514,11 +762,14 @@ async def remove_annual_report_completion(
     state: str,
     user: dict = Depends(require_compliance_access),
     db: Session = Depends(get_db),
+    company_id: int = 1,
 ):
+    _company_access(db, user, company_id, write=True)
     if state not in STATES:
         raise HTTPException(404, "State not found")
-    _ensure_states(db)
-    row = db.query(StateCompliance).filter(StateCompliance.state == state).first()
+    _ensure_states(db, company_id)
+    row = db.query(StateCompliance).filter_by(state=state, company_id=company_id).one()
+    before = snapshot(row)
     row.annual_report_completed_at = None
     row.annual_report_completed_by = None
     row.annual_report_completed_by_name = None
@@ -526,6 +777,7 @@ async def remove_annual_report_completion(
     row.annual_report_completion_removed_by = user.get("timestation_id")
     row.annual_report_completion_removed_by_name = user.get("name")
     row.updated_by = user.get("timestation_id")
+    audit_diff(db, user, company_id, state, before, row)
     db.commit()
     db.refresh(row)
     return _serialize(db, row)
