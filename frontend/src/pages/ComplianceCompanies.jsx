@@ -1,4 +1,5 @@
 import React from 'react'
+import CorporateDocuments from '../components/CorporateDocuments'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { logout } from '../lib/auth'
@@ -88,7 +89,8 @@ function CompanyProfile({ company, ...props }) {
   if (detail.isLoading) return <p>Loading company profile…</p>
   if (detail.isError) return <p role="alert" className="text-red-700">{complianceError(detail.error)}</p>
   const current = { ...company, ...(detail.data?.company || detail.data) }
-  return <CompanyForm key={`${current.id}:${current.updated_at}:${current.is_active}`} {...props} company={current} />
+  return <><CompanyForm key={`${current.id}:${current.updated_at}:${current.is_active}`} {...props} company={current} />
+    <CorporateDocuments company={current} /></>
 }
 
 function CompanyForm({ company, companies, canManage, onSaved, onSelect }) {

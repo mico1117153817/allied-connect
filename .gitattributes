@@ -1,0 +1,2 @@
+# PDF xref offsets and fixture bytes must not undergo line-ending conversion.
+*.pdf binary

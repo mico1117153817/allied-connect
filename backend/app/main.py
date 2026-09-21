@@ -9,6 +9,8 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.models.compliance_attachment import ComplianceAttachment
+from app.models.corporate_document_migration import ensure_corporate_document_schema
+from app.routers import corporate_documents
 from app.models.database import Base, engine, SessionLocal
 from app.models.employee import Employee, ensure_employee_schema
 from app.models.compliance_migration import assert_compliance_schema_ready
@@ -111,7 +113,10 @@ async def lifespan(app: FastAPI):
     # Fail closed before ANY schema write on a legacy compliance database.
     # An operator must run the backed-up offline migration first.
     assert_compliance_schema_ready(engine)
-    Base.metadata.create_all(bind=engine)
+    # Existing models retain startup behavior; the explicit migration owns the new table.
+    Base.metadata.create_all(bind=engine, tables=[table for table in Base.metadata.sorted_tables
+                                                if table.name != 'corporate_documents'])
+    ensure_corporate_document_schema(engine)
     ensure_employee_schema(engine)
     # Seed default settings
     db = SessionLocal()
@@ -160,6 +165,7 @@ app.include_router(manager.router)
 app.include_router(documents.router)
 app.include_router(settings_router.router)
 app.include_router(compliance.router)
+app.include_router(corporate_documents.router)
 
 
 # Health check
