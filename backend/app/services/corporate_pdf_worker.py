@@ -7,7 +7,7 @@ import sys
 import os
 import json
 
-MEMORY_BYTES = 512 * 1024 * 1024
+MEMORY_BYTES = 128 * 1024 * 1024
 CPU_SECONDS = 5
 MAX_INPUT = 20 * 1024 * 1024
 MAX_PAGES = 250
@@ -68,6 +68,17 @@ def validate(content):
     import io
     from pypdf import PdfReader
     from pypdf.generic import DictionaryObject, ArrayObject, StreamObject, IndirectObject
+    if __package__:
+        from .corporate_pdf_jbig2 import decoded_size
+    else:
+        # -I deliberately excludes the script directory from sys.path. Load
+        # this trusted sibling by absolute filename, never by search path.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            'corporate_pdf_jbig2', os.path.join(os.path.dirname(__file__), 'corporate_pdf_jbig2.py'))
+        decoder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(decoder)
+        decoded_size = decoder.decoded_size
     if not content.startswith(b'%PDF-') or len(content) > MAX_INPUT:
         raise ValueError('input')
     reader = PdfReader(io.BytesIO(content), strict=True)
@@ -99,7 +110,10 @@ def validate(content):
             if objects > MAX_OBJECTS:
                 raise ValueError('complexity')
             if isinstance(obj, StreamObject):
-                size = len(obj.get_data())
+                remaining = min(MAX_PAGE_DECODED - decoded, MAX_TOTAL_DECODED - total)
+                size = decoded_size(obj, remaining)
+                if size is None:
+                    size = len(obj.get_data())
                 decoded += size
                 total += size
                 if decoded > MAX_PAGE_DECODED or total > MAX_TOTAL_DECODED:

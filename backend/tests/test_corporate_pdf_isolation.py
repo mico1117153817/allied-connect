@@ -11,6 +11,13 @@ from app.services import corporate_pdf as service
 from tests.test_corporate_documents import harness, upload, pdf
 
 
+def test_worker_budget_leaves_room_for_512_mib_portal():
+    # Production cgroup is 512 MiB; observed existing service usage ~285 MiB.
+    # Bound the complete child pool, not just one child independently.
+    from app.services import corporate_pdf_worker as worker
+    assert worker.MEMORY_BYTES * service.MAX_WORKERS <= 128 * 1024 * 1024
+
+
 def sleeping_worker(tmp_path):
     path = tmp_path / 'slow_worker.py'
     path.write_text("import time, sys\nsys.stdin.buffer.read()\ntime.sleep(30)\nprint('{\"ok\": true, \"isolation\": true}')\n")

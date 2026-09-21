@@ -8,7 +8,7 @@ import threading
 from fastapi import HTTPException
 
 WALL_SECONDS = 8
-MAX_WORKERS = 2  # per API process; fail fast rather than queue bodies in memory
+MAX_WORKERS = 1  # one 128 MiB child leaves room in the 512 MiB API container
 _slots = threading.BoundedSemaphore(MAX_WORKERS)
 WORKER = Path(__file__).with_name('corporate_pdf_worker.py')
 

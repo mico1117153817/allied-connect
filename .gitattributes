@@ -1,2 +1,4 @@
 # PDF xref offsets and fixture bytes must not undergo line-ending conversion.
 *.pdf binary
+# Preserve unmodified upstream decoder source, including generated whitespace.
+backend/app/vendor/pdfjs/pdf.image_decoders.mjs -whitespace
