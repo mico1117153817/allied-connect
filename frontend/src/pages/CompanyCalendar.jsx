@@ -1,6 +1,7 @@
 import React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import WorkflowNav from '../components/WorkflowNav'
 
 const input = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100'
 const emptyForm = { title: '', description: '', start_at: '', end_at: '', all_day: false, event_type_id: '', color: '#2563eb', notes: '', reminder_minutes: '', attendee_ids: '' }
@@ -40,14 +41,14 @@ export default function CompanyCalendar() {
   const move = amount => setAnchor(current => { const next = new Date(current); view === 'month' ? next.setMonth(next.getMonth() + amount) : next.setDate(next.getDate() + amount * (view === 'week' ? 7 : 1)); return next })
   const openCreate = date => setEditor({ mode: 'create', event: { ...emptyForm, start_at: localValue(date || anchor), end_at: localValue(date || anchor) } })
   const openEvent = event => event.source_type === 'task' ? setEditor({ mode: 'task', event: { ...event, start_at: localValue(event.start_at) } }) : setSelected(event.id)
-  return <main className="mx-auto max-w-7xl space-y-5 px-3 py-5 sm:px-6">
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><WorkflowNav/><main className="mx-auto max-w-7xl space-y-5 px-3 py-5 sm:px-6">
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-blue-700">Company Management</p><h1 className="text-2xl font-bold text-blue-950">Company Calendar</h1><p className="text-sm text-slate-500">Events, reminders, and task deadlines in one place.</p></div><div className="flex gap-2"><button onClick={() => setManagingTypes(true)} className="rounded-lg border px-4 py-2 text-sm font-semibold">Manage Event Types</button><button disabled={!companyId} onClick={() => openCreate()} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">New Event</button></div></header>
     <section className="rounded-xl bg-white p-3 shadow-sm sm:p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><label className="min-w-56 text-xs font-semibold text-slate-600">Company<select aria-label="Company" className={`${input} mt-1`} value={companyId} onChange={e => { setCompanyId(e.target.value); setSelected(null) }}><option value="">Select a company</option>{(companies.data || []).map(company => <option key={company.id} value={company.id}>{company.legal_name}</option>)}</select></label><div className="flex flex-wrap items-center gap-2"><button aria-label="Previous" onClick={() => move(-1)} className="rounded border px-3 py-2">‹</button><button onClick={() => setAnchor(new Date())} className="rounded border px-3 py-2 text-sm font-medium">Today</button><button aria-label="Next" onClick={() => move(1)} className="rounded border px-3 py-2">›</button><strong className="min-w-44 px-2 text-center text-blue-950">{anchor.toLocaleDateString([], { month: 'long', year: 'numeric', ...(view === 'day' ? { day: 'numeric' } : {}) })}</strong><div className="flex rounded-lg bg-slate-100 p-1">{['month', 'week', 'day'].map(option => <button key={option} onClick={() => setView(option)} className={`rounded-md px-3 py-1.5 text-sm capitalize ${view === option ? 'bg-white font-semibold text-blue-700 shadow' : 'text-slate-600'}`}>{option[0].toUpperCase() + option.slice(1)}</button>)}</div></div></div></section>
     {!companyId ? <Empty>Select a company to view its calendar.</Empty> : events.isLoading ? <Empty>Loading calendar…</Empty> : <CalendarGrid view={view} anchor={anchor} range={range} events={events.data || []} onEvent={openEvent} onDay={openCreate} />}
     {editor && <EventEditor companyId={companyId} eventTypes={eventTypes.data || []} state={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); refresh() }} />}
     {selected !== null && <EventDetail eventId={selected} onClose={() => setSelected(null)} onEdit={event => { setSelected(null); setEditor({ mode: 'edit', event: { ...event, start_at: localValue(event.start_at), end_at: localValue(event.end_at) } }) }} />}
     {managingTypes && <EventTypeManager types={eventTypes.data || []} close={() => setManagingTypes(false)} changed={() => qc.invalidateQueries({ queryKey: ['calendar-event-types'] })} />}
-  </main>
+  </main></div>
 }
 
 function CalendarGrid({ view, anchor, range, events, onEvent, onDay }) {
