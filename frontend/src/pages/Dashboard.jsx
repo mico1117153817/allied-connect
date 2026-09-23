@@ -55,6 +55,9 @@ export default function Dashboard() {
     queryFn: () => api.get('/api/me/').then(r => r.data),
     enabled: !viewingEmployee,
   })
+  const taskAccess = profile?.company_task_access === true || canAccessCompanyTasks()
+  const calendarAccess = profile?.company_calendar_access === true || canAccessCompanyCalendar()
+  const vaultAccess = profile?.password_vault_access === true || canAccessPasswordVault()
 
   // Pay periods
   const { data: ppList } = useQuery({
@@ -144,10 +147,10 @@ export default function Dashboard() {
             {canAccessCompliance() && (
               <a href="/compliance" className="text-sm text-blue-600 hover:underline">Compliance</a>
             )}
-            {!viewingEmployee && canAccessCompanyTasks() && <a href="/company-tasks" className="text-sm text-blue-600 hover:underline">Company Tasks</a>}
-            {!viewingEmployee && canAccessCompanyCalendar() && <a href="/company-calendar" className="text-sm text-blue-600 hover:underline">Company Calendar</a>}
+            {!viewingEmployee && taskAccess && <a href="/company-tasks" className="text-sm text-blue-600 hover:underline">Company Tasks</a>}
+            {!viewingEmployee && calendarAccess && <a href="/company-calendar" className="text-sm text-blue-600 hover:underline">Company Calendar</a>}
             {isManager() && <a href="/manager" className="text-sm text-blue-600 hover:underline">Manager View</a>}
-            {!viewingEmployee && canAccessPasswordVault() && <a href="/password-vault" className="text-sm text-blue-600 hover:underline">Password Vault</a>}
+            {!viewingEmployee && vaultAccess && <a href="/password-vault" className="text-sm text-blue-600 hover:underline">Password Vault</a>}
             <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
           </div>
         </div>
