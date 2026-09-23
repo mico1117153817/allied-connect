@@ -15,3 +15,5 @@ pytest==8.3.3
 pytest-asyncio==0.24.0
 Pillow==12.3.0
 argon2-cffi==25.1.0
+pypdf==6.19.0
+quickjs-ng==0.16.2.1

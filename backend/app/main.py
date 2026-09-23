@@ -9,12 +9,14 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.models.compliance_attachment import ComplianceAttachment
+from app.models.corporate_document_migration import ensure_corporate_document_schema
+from app.routers import corporate_documents
 from app.models.database import Base, engine, SessionLocal
 from app.models.employee import Employee, ensure_employee_schema
 from app.models.compliance_migration import assert_compliance_schema_ready
-from app.models import task as task_models  # noqa: F401 - register task tables before create_all
+from app.models import task as task_models  # noqa: F401 - register task and vault tables before create_all
 from app.models.task import ensure_task_workflow_schema
-from app.routers import auth, employee, time_off, manager, documents, settings as settings_router, compliance, tasks, vault, notifications, company_calendar
+from app.routers import auth, employee, time_off, manager, documents, settings as settings_router, compliance, tasks, vault, notifications, company_calendar, corporate_documents
 from app.services.scheduler import start_scheduler
 from app.services.settings_service import init_defaults
 from app.services.timestation import timestation
@@ -113,7 +115,9 @@ async def lifespan(app: FastAPI):
     # Fail closed before ANY schema write on a legacy compliance database.
     # An operator must run the backed-up offline migration first.
     assert_compliance_schema_ready(engine)
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine, tables=[table for table in Base.metadata.sorted_tables
+                                                if table.name != 'corporate_documents'])
+    ensure_corporate_document_schema(engine)
     ensure_task_workflow_schema(engine)
     ensure_employee_schema(engine)
     # Seed default settings
@@ -167,6 +171,7 @@ app.include_router(tasks.router)
 app.include_router(vault.router)
 app.include_router(notifications.router)
 app.include_router(company_calendar.router)
+app.include_router(corporate_documents.router)
 
 
 # Health check
