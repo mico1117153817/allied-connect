@@ -12,6 +12,18 @@ import httpx
 from app.config import settings
 
 
+def send_task_notification(to_email: str, subject: str, body: str) -> Optional[dict]:
+    """Synchronous worker transport; raises so durable delivery can retry."""
+    if not settings.POSTMARK_API_KEY:
+        return None
+    response = httpx.post("https://api.postmarkapp.com/email", headers={"Accept": "application/json", "Content-Type": "application/json", "X-Postmark-Server-Token": settings.POSTMARK_API_KEY}, json={"From": settings.EMAIL_FROM, "To": to_email, "Subject": subject, "TextBody": body}, timeout=15.0)
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("ErrorCode") not in (None, 0):
+        raise RuntimeError(payload.get("Message") or "Postmark rejected task notification")
+    return payload
+
+
 def _status_label(status: str) -> str:
     return {
         "approved": "Approved ✅",

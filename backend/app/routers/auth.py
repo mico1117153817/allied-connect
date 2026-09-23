@@ -20,6 +20,7 @@ class LoginRequest(BaseModel):
 
 
 class EmployeeInfo(BaseModel):
+    timestation_id: str | None = None
     name: str | None = None
     role: str | None = None
     department: str | None = None
@@ -172,6 +173,7 @@ async def login(
         access_token=token,
         token_type="bearer",
         employee=EmployeeInfo(
+            timestation_id=existing.timestation_id,
             name=existing.name,
             role=existing.role,
             department=existing.primary_department,

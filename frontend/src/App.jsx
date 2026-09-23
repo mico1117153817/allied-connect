@@ -12,6 +12,9 @@ import Settings from './pages/Settings'
 import MyInfo from './pages/MyInfo'
 import EmployeeDirectory from './pages/EmployeeDirectory'
 import Compliance from './pages/Compliance'
+import CompanyTasks from './pages/CompanyTasks'
+import CompanyCalendar from './pages/CompanyCalendar'
+import PasswordVault from './pages/PasswordVault'
 
 function ProtectedRoute({ children, managerOnly = false, superAdminOnly = false, complianceOnly = false }) {
   const location = useLocation()
@@ -52,6 +55,9 @@ export default function App() {
       <Route path="/settings" element={<ProtectedRoute managerOnly><Settings /></ProtectedRoute>} />
       <Route path="/directory" element={<ProtectedRoute><EmployeeDirectory /></ProtectedRoute>} />
       <Route path="/compliance" element={<ProtectedRoute complianceOnly><Compliance /></ProtectedRoute>} />
+      <Route path="/company-tasks" element={<ProtectedRoute managerOnly><CompanyTasks /></ProtectedRoute>} />
+      <Route path="/company-calendar" element={<ProtectedRoute managerOnly><CompanyCalendar /></ProtectedRoute>} />
+      <Route path="/password-vault" element={<ProtectedRoute><PasswordVault /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )

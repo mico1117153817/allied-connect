@@ -5,6 +5,8 @@ from app.config import settings
 from app.services.timestation import timestation
 from app.models.database import SessionLocal
 from app.models.employee import Employee
+from app.services.task_notifications import process_due_notifications
+from app.services.email import send_task_notification
 
 logger = logging.getLogger(__name__)
 
@@ -71,12 +73,21 @@ async def check_pay_date_reminder():
         )
 
 
+async def send_due_task_notifications():
+    db = SessionLocal()
+    try:
+        process_due_notifications(db, send_task_notification)
+    finally:
+        db.close()
+
+
 def start_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     # Sync employees daily at 2 AM
     scheduler.add_job(sync_employees, "cron", hour=2, minute=0)
     # Pay date reminder daily at 8 AM
     scheduler.add_job(check_pay_date_reminder, "cron", hour=8, minute=0)
+    scheduler.add_job(send_due_task_notifications, "interval", minutes=1, max_instances=1, coalesce=True)
     scheduler.start()
     logger.info("Scheduler started: employee sync (2 AM), pay date reminders (8 AM)")
     return scheduler

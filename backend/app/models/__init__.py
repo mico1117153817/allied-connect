@@ -13,6 +13,16 @@ from app.models.document_recipient_template import DocumentRecipientTemplate
 from app.models.setting import Setting
 from app.models.compliance_attachment import ComplianceAttachment
 from app.models.state_compliance import StateCompliance
+from app.models.task import (
+    Task,
+    TaskActivity,
+    TaskAssignment,
+    TaskAttachment,
+    TaskCategory,
+    TaskNotificationRecipient,
+    TaskReminder,
+    TaskNotification, VaultAudit, VaultEntry, VaultSession, VaultUnlock,
+)
 
 __all__ = [
     "Base", "engine", "SessionLocal", "get_db",
@@ -21,4 +31,6 @@ __all__ = [
     "Document", "DocumentContent", "DocumentSignature", "DocumentAssignment",
     "DocumentRecipientTemplate", "Setting",
     "ComplianceAttachment",
+    "Task", "TaskActivity", "TaskAssignment", "TaskAttachment", "TaskCategory",
+    "TaskNotificationRecipient", "TaskReminder", "TaskNotification", "VaultAudit", "VaultEntry", "VaultSession", "VaultUnlock",
 ]

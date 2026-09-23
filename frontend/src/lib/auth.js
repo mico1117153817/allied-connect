@@ -31,3 +31,7 @@ export function isSuperAdmin() {
   const emp = getEmployee()
   return emp?.role === 'super_admin'
 }
+
+export function canAccessPasswordVault() {
+  return ['local_f2a5804ba2e5', 'local_262a0ca4abea'].includes(getEmployee()?.timestation_id)
+}

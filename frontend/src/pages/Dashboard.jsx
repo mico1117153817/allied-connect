@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { formatCalendarDate } from '../lib/calendar'
-import { getEmployee, logout, isManager, canAccessCompliance } from '../lib/auth'
+import { getEmployee, logout, isManager, canAccessCompliance, canAccessPasswordVault } from '../lib/auth'
 import { formatDateTime12Hour, formatTime12Hour } from '../lib/time'
 
 export default function Dashboard() {
@@ -144,8 +144,9 @@ export default function Dashboard() {
               <a href="/compliance" className="text-sm text-blue-600 hover:underline">Compliance</a>
             )}
             {isManager() && (
-              <a href="/manager" className="text-sm text-blue-600 hover:underline">Manager View</a>
+              <><a href="/company-tasks" className="text-sm text-blue-600 hover:underline">Company Tasks</a><a href="/company-calendar" className="text-sm text-blue-600 hover:underline">Company Calendar</a><a href="/manager" className="text-sm text-blue-600 hover:underline">Manager View</a></>
             )}
+            {!viewingEmployee && canAccessPasswordVault() && <a href="/password-vault" className="text-sm text-blue-600 hover:underline">Password Vault</a>}
             <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
           </div>
         </div>
