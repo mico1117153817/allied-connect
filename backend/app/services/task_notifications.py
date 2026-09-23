@@ -12,18 +12,35 @@ from app.models.company_workflow import CalendarAttendee, CompanyCalendarEvent, 
 def _now(): return datetime.now(timezone.utc)
 
 
+def _create_internal_task_notification(db, task, employee_id, event_type, subject, body, occurrence):
+    """Mirror task events into the portal inbox without creating a second email."""
+    from app.routers.notifications import create_notification
+    return create_notification(
+        db,
+        employee_id=employee_id,
+        company_id=task.company_id,
+        event_type=event_type,
+        title=subject,
+        body=body,
+        link=f"/company-tasks?task={task.id}",
+        key=f"task-internal:{task.id}:{event_type}:{employee_id}:{occurrence}",
+    )
+
+
 def enqueue_task_event(db, task, event_type, actor_id, scheduled_at=None):
     assignments = db.query(TaskAssignment).filter_by(task_id=task.id).all()
-    for assignment in assignments:
-        employee = db.query(Employee).filter_by(timestation_id=assignment.employee_id).first()
+    recipients = list(dict.fromkeys(assignment.employee_id for assignment in assignments))
+    for employee_id in recipients:
+        employee = db.query(Employee).filter_by(timestation_id=employee_id).first()
         subject = f"[{task.task_key}] {task.title}"
         body = f"Task {task.task_key}: {task.title}\nEvent: {event_type}"
+        _create_internal_task_notification(db, task, employee_id, event_type, subject, body, scheduled_at or "once")
         for channel in ("internal", "email"):
             if channel == "email" and (not employee or not employee.email or employee.email_notifications_enabled is False): continue
-            raw = f"{task.id}|{event_type}|{assignment.employee_id}|{channel}|{scheduled_at or ''}"
+            raw = f"{task.id}|{event_type}|{employee_id}|{channel}|{scheduled_at or ''}"
             key = hashlib.sha256(raw.encode()).hexdigest()
             if db.query(TaskNotification).filter_by(idempotency_key=key).first(): continue
-            db.add(TaskNotification(idempotency_key=key, task_id=task.id, employee_id=assignment.employee_id, recipient_email=employee.email if employee else None, channel=channel, event_type=event_type, subject=subject, body=body, available_at=scheduled_at or _now()))
+            db.add(TaskNotification(idempotency_key=key, task_id=task.id, employee_id=employee_id, recipient_email=employee.email if employee else None, channel=channel, event_type=event_type, subject=subject, body=body, available_at=scheduled_at or _now()))
 
 
 def process_due_notifications(db, send_email, limit=100):
