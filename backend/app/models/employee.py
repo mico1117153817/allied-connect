@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, inspect
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, inspect, text
 from sqlalchemy.sql import func
 from app.models.database import Base
 
@@ -20,20 +20,52 @@ class Employee(Base):
     hourly_rate = Column(String, nullable=True)  # private rate set by super admins
     is_active = Column(Boolean, default=True)
     login_enabled = Column(Boolean, nullable=False, default=True)
+    email_notifications_enabled = Column(Boolean, nullable=False, default=True)
+    company_task_access = Column(Boolean, nullable=False, default=False)
+    company_calendar_access = Column(Boolean, nullable=False, default=False)
+    password_vault_access = Column(Boolean, nullable=False, default=False)
     last_synced = Column(DateTime, nullable=True)
 
 
+class EmployeePermissionAudit(Base):
+    __tablename__ = "employee_permission_audit"
+
+    id = Column(Integer, primary_key=True)
+    actor_employee_id = Column(String, nullable=False, index=True)
+    target_employee_id = Column(String, nullable=False, index=True)
+    permission = Column(String, nullable=False, index=True)
+    old_value = Column(Boolean, nullable=False)
+    new_value = Column(Boolean, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+VAULT_PERMISSION_AUTHORITIES = frozenset({"local_f2a5804ba2e5", "local_262a0ca4abea"})
+
+
 def ensure_employee_schema(engine):
-    """Add login access control without disturbing existing employee records."""
+    """Add employee feature permissions with repeatable, least-privilege backfills."""
     inspector = inspect(engine)
     if "employees" not in inspector.get_table_names():
         return
     existing = {column["name"] for column in inspector.get_columns("employees")}
-    if "login_enabled" in existing and engine.dialect.name != "postgresql":
-        return
-    if engine.dialect.name == "postgresql":
-        statement = "ALTER TABLE employees ADD COLUMN IF NOT EXISTS login_enabled BOOLEAN NOT NULL DEFAULT TRUE"
-    else:
-        statement = "ALTER TABLE employees ADD COLUMN login_enabled BOOLEAN NOT NULL DEFAULT 1"
+    definitions = {
+        "login_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
+        "email_notifications_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
+        "company_task_access": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "company_calendar_access": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "password_vault_access": "BOOLEAN NOT NULL DEFAULT FALSE",
+    }
+    added = set()
     with engine.begin() as connection:
-        connection.exec_driver_sql(statement)
+        for name, definition in definitions.items():
+            if name not in existing:
+                clause = " IF NOT EXISTS" if engine.dialect.name == "postgresql" else ""
+                connection.exec_driver_sql(f"ALTER TABLE employees ADD COLUMN{clause} {name} {definition}")
+                added.add(name)
+        if {"company_task_access", "company_calendar_access"} & added:
+            updates = []
+            if "company_task_access" in added: updates.append("company_task_access = TRUE")
+            if "company_calendar_access" in added: updates.append("company_calendar_access = TRUE")
+            connection.execute(text(f"UPDATE employees SET {', '.join(updates)} WHERE role IN ('admin', 'super_admin')"))
+        if "password_vault_access" in added:
+            connection.execute(text("UPDATE employees SET password_vault_access = TRUE WHERE timestation_id IN (:marc, :nicole)"), {"marc": "local_f2a5804ba2e5", "nicole": "local_262a0ca4abea"})

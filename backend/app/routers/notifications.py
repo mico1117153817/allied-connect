@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.models.company_workflow import InternalNotification, NotificationDelivery
 from app.models.database import get_db
@@ -14,17 +15,20 @@ router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 
 def create_notification(db: Session, *, employee_id: str, company_id: int, event_type: str, title: str, body: str, link: str, key: str) -> bool:
-    if db.query(InternalNotification).filter_by(idempotency_key=key).first():
-        return False
-    notification = InternalNotification(employee_id=employee_id, company_id=company_id, event_type=event_type, title=title, body=body, link=link, idempotency_key=key)
-    db.add(notification)
-    db.flush()
-    db.add(NotificationDelivery(notification_id=notification.id, channel="internal", recipient=employee_id, template=event_type, idempotency_key=f"internal:{key}", status="delivered", attempted_at=datetime.now(timezone.utc)))
     employee = db.query(Employee).filter_by(timestation_id=employee_id).first()
-    if employee and employee.email:
-        # A durable outbox record is claimed by the scheduler/worker. No remote call occurs in request transactions.
-        db.add(NotificationDelivery(notification_id=notification.id, channel="email", recipient=employee.email, template=event_type, idempotency_key=f"email:{key}", status="pending"))
-    return True
+    try:
+        with db.begin_nested():
+            notification = InternalNotification(employee_id=employee_id, company_id=company_id, event_type=event_type, title=title, body=body, link=link, idempotency_key=key)
+            db.add(notification)
+            db.flush()
+            db.add(NotificationDelivery(notification_id=notification.id, channel="internal", recipient=employee_id, template=event_type, idempotency_key=f"internal:{key}", status="delivered", attempted_at=datetime.now(timezone.utc)))
+            if employee and employee.email and employee.email_notifications_enabled is not False:
+                db.add(NotificationDelivery(notification_id=notification.id, channel="email", recipient=employee.email, template=event_type, idempotency_key=f"email:{key}", status="pending"))
+            db.flush()
+        return True
+    except IntegrityError:
+        # A competing transaction inserted the same durable event first.
+        return False
 
 
 def notify_task_assignees(db: Session, task: Task, event_type: str, occurrence: str = "once") -> int:
@@ -41,6 +45,14 @@ def notify_task_assignees(db: Session, task: Task, event_type: str, occurrence: 
 def list_notifications(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = db.query(InternalNotification).filter_by(employee_id=user["timestation_id"]).order_by(InternalNotification.created_at.desc(), InternalNotification.id.desc()).all()
     return {"notifications": [{"id": r.id, "company_id": r.company_id, "event_type": r.event_type, "title": r.title, "body": r.body, "link": r.link, "read_at": r.read_at.isoformat() if r.read_at else None, "created_at": r.created_at.isoformat() if r.created_at else None} for r in rows]}
+
+
+@router.post("/read-all")
+def read_all_notifications(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    now = datetime.now(timezone.utc)
+    marked = db.query(InternalNotification).filter_by(employee_id=user["timestation_id"], read_at=None).update({InternalNotification.read_at: now}, synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "marked_read": marked}
 
 
 @router.post("/{notification_id}/read")

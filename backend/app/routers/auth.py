@@ -25,6 +25,10 @@ class EmployeeInfo(BaseModel):
     role: str | None = None
     department: str | None = None
     email: str | None = None
+    email_notifications_enabled: bool = True
+    company_task_access: bool = False
+    company_calendar_access: bool = False
+    password_vault_access: bool = False
 
 
 class LoginResponse(BaseModel):
@@ -178,6 +182,10 @@ async def login(
             role=existing.role,
             department=existing.primary_department,
             email=existing.email,
+            email_notifications_enabled=existing.email_notifications_enabled,
+            company_task_access=existing.company_task_access,
+            company_calendar_access=existing.company_calendar_access,
+            password_vault_access=existing.password_vault_access,
         ),
     )
 
@@ -228,6 +236,10 @@ def get_current_user(
         "name": employee.name,
         "role": employee.role,
         "email": employee.email,
+        "email_notifications_enabled": employee.email_notifications_enabled,
+        "company_task_access": employee.company_task_access,
+        "company_calendar_access": employee.company_calendar_access,
+        "password_vault_access": employee.password_vault_access,
     }
 
 

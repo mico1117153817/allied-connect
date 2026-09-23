@@ -72,6 +72,10 @@ async def get_profile(user: dict = Depends(get_current_user)):
         "name": user.get("name"),
         "role": user.get("role"),
         "email": user.get("email"),
+        "email_notifications_enabled": user.get("email_notifications_enabled", True),
+        "company_task_access": user.get("company_task_access", False),
+        "company_calendar_access": user.get("company_calendar_access", False),
+        "password_vault_access": user.get("password_vault_access", False),
     }
 
 

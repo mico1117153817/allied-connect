@@ -15,6 +15,16 @@ class TaskCategory(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class VaultCategory(Base):
+    __tablename__ = "vault_categories"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class Task(Base):
     __tablename__ = "tasks"
 
@@ -143,6 +153,26 @@ class TaskNotification(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class TaskSummaryDelivery(Base):
+    __tablename__ = "task_summary_deliveries"
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipient_email = Column(String, nullable=False)
+    recipient_employee_id = Column(String, nullable=True, index=True)
+    subject = Column(String, nullable=False)
+    html_body = Column(Text, nullable=False)
+    pdf_content = Column(LargeBinary, nullable=True)
+    secure_link = Column(String, nullable=True)
+    idempotency_key = Column(String, nullable=False, unique=True, index=True)
+    status = Column(String, nullable=False, default="pending", index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    provider_message_id = Column(String, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    sent_at = Column(DateTime, nullable=True)
+
+
 class VaultUnlock(Base):
     __tablename__ = "vault_unlocks"
     employee_id = Column(String, primary_key=True)
@@ -163,11 +193,15 @@ class VaultEntry(Base):
     __tablename__ = "vault_entries"
     id = Column(Integer, primary_key=True)
     company_id = Column(Integer, ForeignKey("compliance_companies.id"), nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("vault_categories.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     username_ciphertext = Column(LargeBinary, nullable=True)
     secret_ciphertext = Column(LargeBinary, nullable=False)
     url_ciphertext = Column(LargeBinary, nullable=True)
     notes_ciphertext = Column(LargeBinary, nullable=True)
+    account_ref_ciphertext = Column(LargeBinary, nullable=True)
+    mfa_notes_ciphertext = Column(LargeBinary, nullable=True)
+    recovery_notes_ciphertext = Column(LargeBinary, nullable=True)
     created_by = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -197,11 +231,24 @@ TASK_STATUSES = ("Not Started", "In Progress", "Waiting", "Completed", "Cancelle
 def ensure_task_workflow_schema(engine):
     """Apply only additive, repeatable upgrades for databases created before claims existed."""
     inspector = inspect(engine)
-    if "task_notifications" not in inspector.get_table_names():
+    tables = inspector.get_table_names()
+    if "task_notifications" not in tables:
         return
     columns = {column["name"] for column in inspector.get_columns("task_notifications")}
     with engine.begin() as connection:
         if "claim_token" not in columns:
             connection.execute(text("ALTER TABLE task_notifications ADD COLUMN claim_token VARCHAR"))
         if "claimed_at" not in columns:
-            connection.execute(text("ALTER TABLE task_notifications ADD COLUMN claimed_at DATETIME"))
+            connection.execute(text("ALTER TABLE task_notifications ADD COLUMN claimed_at TIMESTAMP"))
+        if "vault_entries" in tables:
+            vault_columns = {column["name"] for column in inspector.get_columns("vault_entries")}
+            if "category_id" not in vault_columns:
+                connection.execute(text("ALTER TABLE vault_entries ADD COLUMN category_id INTEGER"))
+            for column in ("account_ref_ciphertext", "mfa_notes_ciphertext", "recovery_notes_ciphertext"):
+                if column not in vault_columns:
+                    sql_type = "BYTEA" if engine.dialect.name == "postgresql" else "BLOB"
+                    connection.execute(text(f"ALTER TABLE vault_entries ADD COLUMN {column} {sql_type}"))
+        if "company_calendar_events" in tables:
+            calendar_columns = {column["name"] for column in inspector.get_columns("company_calendar_events")}
+            if "event_type_id" not in calendar_columns:
+                connection.execute(text("ALTER TABLE company_calendar_events ADD COLUMN event_type_id INTEGER"))

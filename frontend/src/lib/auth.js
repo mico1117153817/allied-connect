@@ -33,5 +33,17 @@ export function isSuperAdmin() {
 }
 
 export function canAccessPasswordVault() {
+  return getEmployee()?.password_vault_access === true
+}
+
+export function canAccessCompanyTasks() {
+  return getEmployee()?.company_task_access === true
+}
+
+export function canAccessCompanyCalendar() {
+  return getEmployee()?.company_calendar_access === true
+}
+
+export function canAdministerPasswordVault() {
   return ['local_f2a5804ba2e5', 'local_262a0ca4abea'].includes(getEmployee()?.timestation_id)
 }

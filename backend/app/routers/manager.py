@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.models.database import get_db
-from app.models.employee import Employee
+from app.models.employee import Employee, EmployeePermissionAudit, VAULT_PERMISSION_AUTHORITIES
 from app.models.pay_adjustment import PayAdjustment
 from app.models.time_off import TimeOffRequest
 from app.models.hour_balance import HourBalance, HourTransaction
@@ -13,7 +13,7 @@ from app.services.hour_balance_service import (
     add_hours, get_balance, get_all_balances, get_transaction_history, deduct_hours
 )
 from app.models.scheduled_shift import ScheduledShift
-from app.routers.auth import require_manager, require_super_admin
+from app.routers.auth import get_current_user, require_manager, require_super_admin
 from app.services.timestation import timestation
 
 router = APIRouter(prefix="/api/manager", tags=["manager"])
@@ -70,6 +70,10 @@ async def list_all_employees(
                 "email": emp.get("email") or (db_emp.email if db_emp else None),
                 "role": db_emp.role if db_emp else "employee",
                 "login_enabled": db_emp.login_enabled if db_emp else True,
+                "email_notifications_enabled": db_emp.email_notifications_enabled if db_emp else True,
+                "company_task_access": db_emp.company_task_access if db_emp else False,
+                "company_calendar_access": db_emp.company_calendar_access if db_emp else False,
+                "password_vault_access": db_emp.password_vault_access if db_emp else False,
                 "custom_id": emp.get("custom_employee_id", ""),
             }
         )
@@ -91,11 +95,64 @@ async def list_all_employees(
                 "email": emp.email,
                 "role": emp.role,
                 "login_enabled": emp.login_enabled,
+                "email_notifications_enabled": emp.email_notifications_enabled,
+                "company_task_access": emp.company_task_access,
+                "company_calendar_access": emp.company_calendar_access,
+                "password_vault_access": emp.password_vault_access,
                 "custom_id": emp.custom_employee_id or "",
             }
         )
 
     return {"employees": result}
+
+
+class EmployeePermissionsInput(BaseModel):
+    email_notifications_enabled: bool | None = None
+    company_task_access: bool | None = None
+    company_calendar_access: bool | None = None
+    password_vault_access: bool | None = None
+
+
+@router.put("/employee/{employee_id}/permissions")
+def set_employee_permissions(
+    employee_id: str,
+    req: EmployeePermissionsInput,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    actor_id = user.get("timestation_id")
+    values = req.model_dump(exclude_unset=True)
+    general = set(values) - {"password_vault_access"}
+    if general and user.get("role") not in {"manager", "admin", "super_admin"}:
+        raise HTTPException(403, "Administrator access required")
+    if "password_vault_access" in values and actor_id not in VAULT_PERMISSION_AUTHORITIES:
+        raise HTTPException(403, "Only designated vault authorities can change vault access")
+    employee = db.query(Employee).filter(Employee.timestation_id == employee_id).first()
+    if not employee:
+        raise HTTPException(404, "Employee not found")
+    for permission, value in values.items():
+        old_value = bool(getattr(employee, permission))
+        if old_value == value:
+            continue
+        setattr(employee, permission, value)
+        if permission == "password_vault_access":
+            db.add(EmployeePermissionAudit(
+                actor_employee_id=actor_id,
+                target_employee_id=employee_id,
+                permission=permission,
+                old_value=old_value,
+                new_value=value,
+            ))
+    db.commit()
+    db.refresh(employee)
+    return {
+        "employee_id": employee.timestation_id,
+        "name": employee.name,
+        "email_notifications_enabled": employee.email_notifications_enabled,
+        "company_task_access": employee.company_task_access,
+        "company_calendar_access": employee.company_calendar_access,
+        "password_vault_access": employee.password_vault_access,
+    }
 
 
 # ── Employee portal login access ────────────────────────────────

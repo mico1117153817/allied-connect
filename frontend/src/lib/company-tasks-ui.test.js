@@ -26,3 +26,7 @@ test('frontend exposes complete task workflow API contracts', () => {
   for (const fragment of ['/attachments', '/reminders', '/summary.pdf', '/notes', 'assigned_employee_ids', 'state_compliance_id', 'completion_notes']) assert.ok(source.includes(fragment), fragment)
   for (const label of ['Primary Assignee', 'Additional Assignees', 'Archive Task', 'Mark Complete', 'Edit Task']) assert.ok(source.includes(label), label)
 })
+
+test('assignee picker submits the manager API timestation identifier', () => {
+  assert.match(source, /timestation_id\|\|x\.employee_id/)
+})

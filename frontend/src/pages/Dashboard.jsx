@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { formatCalendarDate } from '../lib/calendar'
-import { getEmployee, logout, isManager, canAccessCompliance, canAccessPasswordVault } from '../lib/auth'
+import { getEmployee, logout, isManager, canAccessCompliance, canAccessPasswordVault, canAccessCompanyTasks, canAccessCompanyCalendar } from '../lib/auth'
 import { formatDateTime12Hour, formatTime12Hour } from '../lib/time'
 
 export default function Dashboard() {
@@ -133,19 +133,20 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-3">
             <img src="/allied-logo.jpg" alt="Allied" className="h-10 w-auto rounded" />
             <h1 className="text-xl font-bold text-gray-900">Allied Connect</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span className="text-sm text-gray-600">{viewingEmployee ? selectedEmployee?.name : employee?.name}</span>
+            {!viewingEmployee && <a href="/notifications" className="text-sm text-blue-600 hover:underline">Notifications</a>}
             {canAccessCompliance() && (
               <a href="/compliance" className="text-sm text-blue-600 hover:underline">Compliance</a>
             )}
-            {isManager() && (
-              <><a href="/company-tasks" className="text-sm text-blue-600 hover:underline">Company Tasks</a><a href="/company-calendar" className="text-sm text-blue-600 hover:underline">Company Calendar</a><a href="/manager" className="text-sm text-blue-600 hover:underline">Manager View</a></>
-            )}
+            {!viewingEmployee && canAccessCompanyTasks() && <a href="/company-tasks" className="text-sm text-blue-600 hover:underline">Company Tasks</a>}
+            {!viewingEmployee && canAccessCompanyCalendar() && <a href="/company-calendar" className="text-sm text-blue-600 hover:underline">Company Calendar</a>}
+            {isManager() && <a href="/manager" className="text-sm text-blue-600 hover:underline">Manager View</a>}
             {!viewingEmployee && canAccessPasswordVault() && <a href="/password-vault" className="text-sm text-blue-600 hover:underline">Password Vault</a>}
             <button onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
           </div>

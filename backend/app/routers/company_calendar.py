@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.models.company_workflow import CalendarAttachment, CalendarAttendee, CalendarAudit, CompanyCalendarEvent
+from app.models.company_workflow import CalendarAttachment, CalendarAttendee, CalendarAudit, CalendarEventType, CompanyCalendarEvent
 from app.models.compliance_company import ComplianceCompany
 from app.models.database import get_db
 from app.models.employee import Employee
@@ -26,8 +26,12 @@ ALLOWED_ATTACHMENT_TYPES = {
 }
 
 
+def _user_can_calendar(user: dict) -> bool:
+    return bool(user.get("company_calendar_access"))
+
+
 def _require(user: dict = Depends(get_current_user)):
-    if user.get("role") not in {"manager", "admin", "super_admin"} and not user.get("company_task_access"):
+    if not _user_can_calendar(user):
         raise HTTPException(403, "Company Calendar access required")
     return user
 
@@ -43,6 +47,7 @@ class EventInput(BaseModel):
     notes: str | None = None
     reminder_minutes: int | None = Field(None, ge=0, le=525600)
     attendee_ids: list[str] = []
+    event_type_id: int | None = None
 
 
 class EventUpdate(BaseModel):
@@ -55,10 +60,16 @@ class EventUpdate(BaseModel):
     notes: str | None = None
     reminder_minutes: int | None = Field(None, ge=0, le=525600)
     attendee_ids: list[str] | None = None
+    event_type_id: int | None = None
+
+
+class EventTypeInput(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 def _serialize(db, row):
-    return {"id": row.id, "source_type": "event", "company_id": row.company_id, "title": row.title, "description": row.description, "start_at": row.start_at.isoformat(), "end_at": row.end_at.isoformat() if row.end_at else None, "all_day": row.all_day, "color": row.color, "notes": row.notes, "reminder_minutes": row.reminder_minutes, "attendee_ids": [a.employee_id for a in db.query(CalendarAttendee).filter_by(event_id=row.id).all()]}
+    return {"id": row.id, "source_type": "event", "company_id": row.company_id, "event_type_id": row.event_type_id, "title": row.title, "description": row.description, "start_at": row.start_at.isoformat(), "end_at": row.end_at.isoformat() if row.end_at else None, "all_day": row.all_day, "color": row.color, "notes": row.notes, "reminder_minutes": row.reminder_minutes, "attendee_ids": [a.employee_id for a in db.query(CalendarAttendee).filter_by(event_id=row.id).all()]}
 
 
 def _event(db, user, event_id, write=False):
@@ -80,6 +91,34 @@ def _validated_attendees(db, employee_ids):
     return result
 
 
+@router.get("/event-types")
+def event_types(user: dict = Depends(_require), db: Session = Depends(get_db)):
+    rows = db.query(CalendarEventType).filter_by(is_active=True).order_by(CalendarEventType.name).all()
+    return {"event_types": [{"id": row.id, "name": row.name, "color": row.color} for row in rows]}
+
+
+@router.post("/event-types", status_code=201)
+def create_event_type(payload: EventTypeInput, user: dict = Depends(_require), db: Session = Depends(get_db)):
+    if db.query(CalendarEventType).filter_by(name=payload.name).first(): raise HTTPException(409, "Calendar event type already exists")
+    row = CalendarEventType(name=payload.name, color=payload.color.upper(), created_by=user["timestation_id"]); db.add(row); db.commit(); db.refresh(row)
+    return {"id": row.id, "name": row.name, "color": row.color}
+
+
+@router.put("/event-types/{event_type_id}")
+def update_event_type(event_type_id: int, payload: EventTypeInput, user: dict = Depends(_require), db: Session = Depends(get_db)):
+    row = db.query(CalendarEventType).filter_by(id=event_type_id, is_active=True).first()
+    if not row: raise HTTPException(404, "Calendar event type not found")
+    row.name = payload.name; row.color = payload.color.upper(); db.commit()
+    return {"id": row.id, "name": row.name, "color": row.color}
+
+
+@router.delete("/event-types/{event_type_id}", status_code=204)
+def archive_event_type(event_type_id: int, user: dict = Depends(_require), db: Session = Depends(get_db)):
+    row = db.query(CalendarEventType).filter_by(id=event_type_id, is_active=True).first()
+    if not row: raise HTTPException(404, "Calendar event type not found")
+    row.is_active = False; db.commit()
+
+
 @router.get("")
 def list_events(company_id: int, start: datetime, end: datetime, user: dict = Depends(_require), db: Session = Depends(get_db)):
     _company_access(db, user, company_id)
@@ -93,7 +132,12 @@ def list_events(company_id: int, start: datetime, end: datetime, user: dict = De
 @router.post("", status_code=201)
 def create_event(payload: EventInput, user: dict = Depends(_require), db: Session = Depends(get_db)):
     _company_access(db, user, payload.company_id, write=True)
-    row = CompanyCalendarEvent(**payload.model_dump(exclude={"attendee_ids"}), created_by=user["timestation_id"])
+    event_data = payload.model_dump(exclude={"attendee_ids"})
+    if payload.event_type_id is not None:
+        event_type = db.query(CalendarEventType).filter_by(id=payload.event_type_id, is_active=True).first()
+        if not event_type: raise HTTPException(400, "Invalid calendar event type")
+        event_data["color"] = event_type.color
+    row = CompanyCalendarEvent(**event_data, created_by=user["timestation_id"])
     db.add(row); db.flush()
     for employee_id in _validated_attendees(db, payload.attendee_ids):
         db.add(CalendarAttendee(event_id=row.id, employee_id=employee_id))
@@ -124,6 +168,10 @@ def update_event(event_ref: str, payload: EventUpdate, user: dict = Depends(_req
         return {"id": event_ref, "source_type": "task", "start_at": task.due_at.isoformat() if task.due_at else None}
     row = _event(db, user, int(event_ref), write=True)
     changes = payload.model_dump(exclude_unset=True, exclude={"attendee_ids"})
+    if "event_type_id" in changes and changes["event_type_id"] is not None:
+        event_type = db.query(CalendarEventType).filter_by(id=changes["event_type_id"], is_active=True).first()
+        if not event_type: raise HTTPException(400, "Invalid calendar event type")
+        changes["color"] = event_type.color
     for key, value in changes.items(): setattr(row, key, value)
     if payload.attendee_ids is not None:
         attendee_ids = _validated_attendees(db, payload.attendee_ids)

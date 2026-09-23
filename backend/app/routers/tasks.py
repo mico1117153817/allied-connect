@@ -1,12 +1,15 @@
 from datetime import datetime, timezone
 import hashlib
+import html
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Response
-from sqlalchemy import or_
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
 
 from app.models.compliance_company import ComplianceCompany, CompanyPermission
 from app.models.database import get_db
@@ -22,6 +25,7 @@ from app.models.task import (
     TaskCategory,
     TaskReminder,
     TaskNotification,
+    TaskSummaryDelivery,
 )
 from app.routers.auth import get_current_user
 from app.routers.compliance import _company_access
@@ -72,8 +76,20 @@ class TaskNote(BaseModel):
     note: str = Field(min_length=1, max_length=10000)
 
 
+class CategoryInput(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class SummarySendInput(BaseModel):
+    employee_ids: list[str] = []
+    external_emails: list[str] = []
+    include_pdf: bool = False
+    idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+
 def _user_can_tasks(user: dict) -> bool:
-    return user.get("role") in {"manager", "admin", "super_admin"} or bool(user.get("company_task_access"))
+    return bool(user.get("company_task_access"))
 
 
 def _require_tasks(user: dict = Depends(get_current_user)) -> dict:
@@ -194,8 +210,29 @@ def categories(user: dict = Depends(_require_tasks), db: Session = Depends(get_d
     return {"categories": [{"id": row.id, "name": row.name} for row in rows]}
 
 
+@router.post("/categories", status_code=201)
+def create_category(payload: CategoryInput, user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
+    if db.query(TaskCategory).filter_by(name=payload.name).first(): raise HTTPException(409, "Task category already exists")
+    row = TaskCategory(name=payload.name, created_by=user["timestation_id"]); db.add(row); db.commit(); db.refresh(row)
+    return {"id": row.id, "name": row.name}
+
+
+@router.put("/categories/{category_id}")
+def update_category(category_id: int, payload: CategoryInput, user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
+    row = db.query(TaskCategory).filter_by(id=category_id, is_active=True).first()
+    if not row: raise HTTPException(404, "Task category not found")
+    row.name = payload.name; db.commit(); return {"id": row.id, "name": row.name}
+
+
+@router.delete("/categories/{category_id}", status_code=204)
+def archive_category(category_id: int, user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
+    row = db.query(TaskCategory).filter_by(id=category_id, is_active=True).first()
+    if not row: raise HTTPException(404, "Task category not found")
+    row.is_active = False; db.commit()
+
+
 @router.get("/companies")
-def task_companies(user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
+def task_companies(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     query = db.query(ComplianceCompany).filter_by(is_active=True)
     visible_ids = _visible_company_ids(db, user)
     if visible_ids is not None:
@@ -264,6 +301,7 @@ def get_task(task_id: int, user: dict = Depends(_require_tasks), db: Session = D
 @router.put("/{task_id}")
 def update_task(task_id: int, payload: TaskUpdate, user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
     task = _task(db, user, task_id, write=True)
+    previous_status = task.status
     changes = payload.model_dump(exclude_unset=True, exclude={"assigned_employee_ids"})
     if changes.get("priority") is not None and changes["priority"] not in TASK_PRIORITIES:
         raise HTTPException(400, "Invalid task priority")
@@ -287,7 +325,17 @@ def update_task(task_id: int, payload: TaskUpdate, user: dict = Depends(_require
             _activity(db, task, user, "assignments_changed", f"{user.get('name', 'User')} changed task assignments", ",".join(sorted(old_ids)), ",".join(sorted(new_ids)))
             db.flush()
             enqueue_task_event(db, task, "assigned", user["timestation_id"])
-    if task.status == "Completed" and not task.completed_at:
+    if previous_status == "Completed" and task.status != "Completed":
+        task.completed_by = None
+        task.completed_at = None
+    if task.status in {"Completed", "Cancelled"}:
+        db.query(TaskReminder).filter_by(task_id=task.id, enabled=True).update({TaskReminder.enabled: False}, synchronize_session=False)
+        db.query(TaskNotification).filter(
+            TaskNotification.task_id == task.id,
+            TaskNotification.status == "pending",
+            or_(TaskNotification.event_type.like("reminder:%"), TaskNotification.event_type.in_(("overdue", "task_overdue"))),
+        ).update({TaskNotification.status: "cancelled"}, synchronize_session=False)
+    if task.status == "Completed" and previous_status != "Completed":
         task.completed_by = user["timestation_id"]
         task.completed_at = datetime.now(timezone.utc)
         _activity(db, task, user, "completed", f"{user.get('name', 'User')} marked task Completed")
@@ -317,6 +365,44 @@ def task_summary_pdf(task_id: int, user: dict = Depends(_require_tasks), db: Ses
     assignments = ", ".join(a["name"] for a in _serialize(db, task)["assignments"]) or "Unassigned"
     body = _simple_pdf([f"{task.task_key} - {task.title}", f"Status: {_effective_status(task)}", f"Priority: {task.priority}", f"Due: {task.due_at or 'Not set'}", f"Assigned: {assignments}", task.description or ""])
     return Response(body, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{task.task_key}.pdf"', "Cache-Control": "private, no-store"})
+
+
+def _summary_html(task, assignments):
+    return f'''<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;background:#f3f4f6;padding:24px"><table role="presentation" style="max-width:640px;margin:auto;background:white;border:1px solid #e5e7eb;border-radius:8px"><tr><td style="padding:28px"><h2 style="margin-top:0">Task Summary</h2><p><strong>{html.escape(task.task_key)} - {html.escape(task.title)}</strong></p><p>Status: {html.escape(_effective_status(task))}<br>Priority: {html.escape(task.priority)}<br>Due: {html.escape(str(task.due_at or 'Not set'))}<br>Assigned: {html.escape(assignments or 'Unassigned')}</p><p>{html.escape(task.description or '')}</p><p style="color:#6b7280;font-size:12px">Sent by Allied Connect.</p></td></tr></table></body></html>'''
+
+
+@router.post("/{task_id}/send-summary", status_code=202)
+def send_task_summary(task_id: int, payload: SummarySendInput, user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
+    task = _task(db, user, task_id, write=True)
+    recipients = []
+    for employee_id in dict.fromkeys(payload.employee_ids):
+        employee = db.query(Employee).filter_by(timestation_id=employee_id, is_active=True).first()
+        if not employee or not employee.email: raise HTTPException(400, "Internal recipient does not have a deliverable email")
+        if employee.email_notifications_enabled is False: continue
+        recipients.append((employee.email.lower(), employee_id))
+    for address in dict.fromkeys(email.strip().lower() for email in payload.external_emails):
+        if "@" not in address or "." not in address.rsplit("@", 1)[-1]: raise HTTPException(400, "Invalid external email address")
+        known = db.query(Employee).filter(Employee.is_active.is_(True), func.lower(Employee.email) == address).first()
+        if known and known.email_notifications_enabled is False: continue
+        recipients.append((address, known.timestation_id if known else None))
+    recipients = list(dict.fromkeys(recipients))
+    if not recipients: raise HTTPException(400, "At least one recipient is required")
+    names = ", ".join(a["name"] for a in _serialize(db, task)["assignments"])
+    pdf = _simple_pdf([f"{task.task_key} - {task.title}", f"Status: {_effective_status(task)}", f"Priority: {task.priority}", f"Due: {task.due_at or 'Not set'}", f"Assigned: {names or 'Unassigned'}", task.description or ""]) if payload.include_pdf else None
+    created = 0
+    for address, employee_id in recipients:
+        key = hashlib.sha256(f"{task.id}|{payload.idempotency_key}|{address}".encode()).hexdigest()
+        try:
+            with db.begin_nested():
+                db.add(TaskSummaryDelivery(task_id=task.id, recipient_email=address, recipient_employee_id=employee_id, subject=f"[{task.task_key}] Task Summary", html_body=_summary_html(task, names), pdf_content=pdf, secure_link=None, idempotency_key=key, created_by=user["timestation_id"]))
+                db.flush()
+            created += 1
+        except IntegrityError:
+            continue
+    if created:
+        _activity(db, task, user, "summary_queued", f"{user.get('name', 'User')} queued a task summary for {created} recipient(s)")
+    db.commit()
+    return {"created": created, "status": "pending" if created else "duplicate"}
 
 
 @router.post("/{task_id}/notes")
@@ -376,6 +462,8 @@ class ReminderInput(BaseModel):
 @router.post("/{task_id}/reminders", status_code=201)
 def create_reminder(task_id: int, payload: ReminderInput, user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
     task = _task(db, user, task_id, write=True)
+    if task.status in {"Completed", "Cancelled"}:
+        raise HTTPException(409, "Reminders cannot be added to a terminal task")
     row = TaskReminder(task_id=task.id, rule=payload.rule, scheduled_at=payload.scheduled_at, created_by=user["timestation_id"])
     db.add(row); db.flush(); _activity(db, task, user, "reminder_created", f"Reminder scheduled for {payload.scheduled_at.isoformat()}"); enqueue_task_event(db, task, f"reminder:{row.id}", user["timestation_id"], payload.scheduled_at); db.commit()
     return {"id": row.id, "rule": row.rule, "scheduled_at": row.scheduled_at.isoformat()}
@@ -385,4 +473,6 @@ def create_reminder(task_id: int, payload: ReminderInput, user: dict = Depends(_
 def archive_task(task_id: int, user: dict = Depends(_require_tasks), db: Session = Depends(get_db)):
     task = _task(db, user, task_id, write=True)
     task.archived_at = datetime.now(timezone.utc); task.archived_by = user["timestation_id"]
+    db.query(TaskReminder).filter_by(task_id=task.id, enabled=True).update({TaskReminder.enabled: False}, synchronize_session=False)
+    db.query(TaskNotification).filter_by(task_id=task.id, status="pending").update({TaskNotification.status: "cancelled"}, synchronize_session=False)
     _activity(db, task, user, "archived", f"{user.get('name', 'User')} archived the task"); db.commit()

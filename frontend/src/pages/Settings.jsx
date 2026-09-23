@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { logout, isSuperAdmin } from '../lib/auth'
+import { logout, isSuperAdmin, canAdministerPasswordVault } from '../lib/auth'
 import { formatDateTime12Hour, scheduleTimeAriaLabel, timeOptionsIncluding } from '../lib/time'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -36,6 +36,7 @@ export default function Settings() {
   const [hbMsg, setHbMsg] = useState('')
   const [loginAccessMsg, setLoginAccessMsg] = useState('')
   const [roleMsg, setRoleMsg] = useState('')
+  const [permissionMsg, setPermissionMsg] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -93,6 +94,15 @@ export default function Settings() {
       setRoleMsg(`Role updated to ${response.data.role.replace('_', ' ')}.`)
     },
     onError: (error) => setRoleMsg(error.response?.data?.detail || 'Failed to update role.'),
+  })
+
+  const permissionMutation = useMutation({
+    mutationFn: ({ employeeId, permission, value }) => api.put(`/api/manager/employee/${employeeId}/permissions`, { [permission]: value }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['all-employees'] })
+      setPermissionMsg('Employee permission updated.')
+    },
+    onError: (error) => setPermissionMsg(error.response?.data?.detail || 'Failed to update employee permission.'),
   })
 
   const formatLabel = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -191,6 +201,34 @@ export default function Settings() {
             </div>
           </div>
         )}
+
+        {/* Employee Feature Permissions */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold">Employee Feature Permissions</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-4">Control email notifications, company tasks, and company calendar access. Vault access can only be changed by its two designated authorities.</p>
+          {permissionMsg && <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-800">{permissionMsg}</div>}
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {empData?.employees?.map(employee => (
+              <div key={employee.timestation_id} className="border rounded-lg p-3">
+                <p className="font-medium mb-2">{employee.name}</p>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  {[
+                    ['email_notifications_enabled', 'Email notifications'],
+                    ['company_task_access', 'Company tasks'],
+                    ['company_calendar_access', 'Company calendar'],
+                    ...(canAdministerPasswordVault() ? [['password_vault_access', 'Password vault']] : []),
+                  ].map(([permission, label]) => (
+                    <label key={permission} className="flex items-center gap-2">
+                      <input type="checkbox" checked={employee[permission] === true} disabled={permissionMutation.isPending}
+                        onChange={event => permissionMutation.mutate({ employeeId: employee.timestation_id, permission, value: event.target.checked })} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Employee Login Access */}
         <div className="bg-white rounded-xl shadow-sm p-6">

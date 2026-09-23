@@ -6,6 +6,7 @@ sending a real email, so the app works out of the box without an account.
 
 from datetime import date
 from typing import Optional
+import base64
 
 import httpx
 
@@ -22,6 +23,21 @@ def send_task_notification(to_email: str, subject: str, body: str) -> Optional[d
     if payload.get("ErrorCode") not in (None, 0):
         raise RuntimeError(payload.get("Message") or "Postmark rejected task notification")
     return payload
+
+
+def send_task_summary(to_email: str, subject: str, html_body: str, pdf_content: bytes | None = None) -> Optional[dict]:
+    """Worker-only HTML summary transport with an optional small generated PDF."""
+    if not settings.POSTMARK_API_KEY:
+        return None
+    payload = {"From": settings.EMAIL_FROM, "To": to_email, "Subject": subject, "HtmlBody": html_body}
+    if pdf_content:
+        payload["Attachments"] = [{"Name": "task-summary.pdf", "Content": base64.b64encode(pdf_content).decode("ascii"), "ContentType": "application/pdf"}]
+    response = httpx.post("https://api.postmarkapp.com/email", headers={"Accept": "application/json", "Content-Type": "application/json", "X-Postmark-Server-Token": settings.POSTMARK_API_KEY}, json=payload, timeout=15.0)
+    response.raise_for_status()
+    result = response.json()
+    if result.get("ErrorCode") not in (None, 0):
+        raise RuntimeError("Email provider rejected task summary")
+    return result
 
 
 def _status_label(status: str) -> str:

@@ -33,10 +33,22 @@ class NotificationDelivery(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
+class CalendarEventType(Base):
+    __tablename__ = "calendar_event_types"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    color = Column(String, nullable=False, default="#2563eb")
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class CompanyCalendarEvent(Base):
     __tablename__ = "company_calendar_events"
     id = Column(Integer, primary_key=True)
     company_id = Column(Integer, ForeignKey("compliance_companies.id"), nullable=False, index=True)
+    event_type_id = Column(Integer, ForeignKey("calendar_event_types.id"), nullable=True, index=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     start_at = Column(DateTime, nullable=False, index=True)

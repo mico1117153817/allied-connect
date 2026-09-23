@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app.models.database import Base, get_db
 from app.models.employee import Employee
 from app.models.compliance_company import ComplianceCompany, CompanyPermission
+from app.models.task import VaultAudit
 from app.routers.auth import get_current_user
 from app.routers import tasks, company_calendar, notifications, vault
 
@@ -37,7 +38,7 @@ def workflow_harness(monkeypatch):
             CompanyPermission(employee_id="local_262a0ca4abea", company_id=company_one.id, can_edit=True),
         ])
         db.commit()
-    current = {"user": {"timestation_id": "local_f2a5804ba2e5", "name": "Marc", "role": "super_admin"}}
+    current = {"user": {"timestation_id": "local_f2a5804ba2e5", "name": "Marc", "role": "super_admin", "company_task_access": True, "company_calendar_access": True, "password_vault_access": True}}
     app = FastAPI()
     for router in (tasks.router, notifications.router, company_calendar.router, vault.router):
         app.include_router(router)
@@ -98,7 +99,7 @@ def test_vault_authorization_uses_only_immutable_ids_and_requires_unlock(workflo
     client, current, _ = workflow_harness
     current["user"] = {"timestation_id": "OTHER", "name": "Marc Mancuso", "role": "super_admin"}
     assert client.post("/api/password-vault/unlock", json={"password": "correct horse battery staple"}).status_code == 404
-    current["user"] = {"timestation_id": "local_262a0ca4abea", "name": "Anything", "role": "super_admin"}
+    current["user"] = {"timestation_id": "local_262a0ca4abea", "name": "Anything", "role": "super_admin", "password_vault_access": True}
     assert client.post("/api/password-vault/configure", json={"password": "correct horse battery staple"}).status_code == 204
     unlocked = client.post("/api/password-vault/unlock", json={"password": "correct horse battery staple"})
     assert unlocked.status_code == 200
@@ -134,7 +135,7 @@ def test_task_and_calendar_routes_enforce_company_permissions(workflow_harness):
     restricted = create_task(client, company_id=2, due_at="2030-01-06T12:00:00Z")
     restricted_event = client.post("/api/company-calendar", json={"company_id": 2, "title": "Private", "start_at": "2030-01-04T12:00:00Z"}).json()
 
-    current["user"] = {"timestation_id": "OTHER", "name": "Admin", "role": "admin"}
+    current["user"] = {"timestation_id": "OTHER", "name": "Admin", "role": "admin", "company_task_access": True, "company_calendar_access": True}
     assert client.get(f"/api/tasks/{allowed['id']}").status_code == 200
     assert client.get(f"/api/tasks/{restricted['id']}").status_code == 403
     assert client.put(f"/api/tasks/{restricted['id']}", json={"title": "No"}).status_code == 403
@@ -174,7 +175,7 @@ def test_calendar_update_validates_attendees_and_attachment_lifecycle(workflow_h
 
 def test_vault_company_scope_and_safe_configuration(workflow_harness):
     client, current, _ = workflow_harness
-    current["user"] = {"timestation_id": "local_262a0ca4abea", "name": "Nicole", "role": "admin"}
+    current["user"] = {"timestation_id": "local_262a0ca4abea", "name": "Nicole", "role": "admin", "password_vault_access": True}
     password = "correct horse battery staple"
     assert client.post("/api/password-vault/configure", json={"password": password}).status_code == 204
     assert client.post("/api/password-vault/configure", json={"password": "different password phrase"}).status_code == 409
@@ -183,3 +184,90 @@ def test_vault_company_scope_and_safe_configuration(workflow_harness):
     assert client.get("/api/password-vault/entries", headers=headers).status_code == 422
     assert client.get("/api/password-vault/entries", params={"company_id": 2}, headers=headers).status_code == 403
     assert client.post("/api/password-vault/entries", headers=headers, json={"company_id": 9999, "name": "No", "password": "secret"}).status_code in {403, 404}
+
+
+def test_vault_entry_lifecycle_categories_and_copy_audit(workflow_harness):
+    client, current, Session = workflow_harness
+    current["user"] = {"timestation_id": "local_262a0ca4abea", "name": "Nicole", "role": "admin", "password_vault_access": True}
+    password = "correct horse battery staple"
+    client.post("/api/password-vault/configure", json={"password": password})
+    token = client.post("/api/password-vault/unlock", json={"password": password}).json()["vault_token"]
+    headers = {"X-Vault-Token": token}
+    category = client.post("/api/password-vault/categories", json={"name": "Banking"})
+    assert category.status_code == 201, category.text
+    category_id = category.json()["id"]
+    created = client.post("/api/password-vault/entries", headers=headers, json={"company_id": 1, "category_id": category_id, "name": "Bank", "username": "old", "password": "secret"})
+    entry_id = created.json()["id"]
+    viewed = client.get(f"/api/password-vault/entries/{entry_id}", headers=headers)
+    assert viewed.status_code == 200 and viewed.json()["username"] == "old"
+    updated = client.put(f"/api/password-vault/entries/{entry_id}", headers=headers, json={"name": "Bank portal", "username": "new"})
+    assert updated.status_code == 200 and "secret" not in updated.text
+    copied = client.post(f"/api/password-vault/entries/{entry_id}/copy", headers=headers)
+    assert copied.json() == {"password": "secret"}
+    assert "no-store" in copied.headers["cache-control"]
+    assert client.delete(f"/api/password-vault/entries/{entry_id}", headers=headers).status_code == 204
+    assert client.post(f"/api/password-vault/entries/{entry_id}/reveal", headers=headers).status_code == 404
+    with Session() as db:
+        actions = [row.action for row in db.query(VaultAudit).filter_by(entry_id=entry_id).order_by(VaultAudit.id)]
+        assert actions == ["entry_created", "entry_viewed", "entry_modified", "secret_copied", "entry_archived"]
+
+
+def test_management_catalogs_are_configurable_and_archived(workflow_harness):
+    client, _, _ = workflow_harness
+    task_category = client.post("/api/tasks/categories", json={"name": "Regulatory"})
+    assert task_category.status_code == 201, task_category.text
+    task_id = task_category.json()["id"]
+    assert client.put(f"/api/tasks/categories/{task_id}", json={"name": "Regulatory Filing"}).status_code == 200
+    assert client.delete(f"/api/tasks/categories/{task_id}").status_code == 204
+    assert task_id not in {row["id"] for row in client.get("/api/tasks/categories").json()["categories"]}
+    event_type = client.post("/api/company-calendar/event-types", json={"name": "Board", "color": "#123ABC"})
+    assert event_type.status_code == 201, event_type.text
+    event_type_id = event_type.json()["id"]
+    assert client.put(f"/api/company-calendar/event-types/{event_type_id}", json={"name": "Board Meeting", "color": "#ABC123"}).status_code == 200
+    event = client.post("/api/company-calendar", json={"company_id": 1, "event_type_id": event_type_id, "title": "Review", "start_at": "2030-01-04T12:00:00Z"})
+    assert event.status_code == 201 and event.json()["color"] == "#ABC123"
+    assert client.delete(f"/api/company-calendar/event-types/{event_type_id}").status_code == 204
+
+
+def test_task_summary_delivery_is_idempotent_and_only_attaches_optional_generated_pdf(workflow_harness):
+    client, _, Session = workflow_harness
+    task = create_task(client)
+    client.post(f"/api/tasks/{task['id']}/attachments", files={"file": ("large.pdf", b"%PDF" + b"x" * 1024, "application/pdf")})
+    payload = {"employee_ids": ["local_262a0ca4abea"], "external_emails": ["outside@example.test"], "include_pdf": True, "idempotency_key": "summary-request-1", "attachment_limit_bytes": 100}
+    first = client.post(f"/api/tasks/{task['id']}/send-summary", json=payload)
+    second = client.post(f"/api/tasks/{task['id']}/send-summary", json=payload)
+    assert first.status_code == 202, first.text
+    assert first.json()["created"] == 2 and second.json()["created"] == 0
+    with Session() as db:
+        from app.models.task import TaskSummaryDelivery
+        rows = db.query(TaskSummaryDelivery).all()
+        assert len(rows) == 2 and all(row.status == "pending" for row in rows)
+        assert all("<!DOCTYPE html>" in row.html_body for row in rows)
+        assert all(row.pdf_content and row.pdf_content.startswith(b"%PDF") and row.secure_link is None for row in rows)
+
+
+def test_mark_all_notifications_as_read_is_user_scoped(workflow_harness):
+    client, current, _ = workflow_harness
+    task = create_task(client)
+    client.put(f"/api/tasks/{task['id']}", json={"status": "Completed"})
+    current["user"] = {"timestation_id": "local_262a0ca4abea", "name": "Nicole", "role": "employee"}
+    result = client.post("/api/notifications/read-all")
+    assert result.status_code == 200 and result.json()["marked_read"] >= 1
+    assert all(row["read_at"] for row in client.get("/api/notifications").json()["notifications"])
+
+
+def test_completion_cancels_reminders_and_reopening_allows_new_completion(workflow_harness):
+    client, _, Session = workflow_harness
+    task = create_task(client)
+    reminder = client.post(f"/api/tasks/{task['id']}/reminders", json={"rule": "custom", "scheduled_at": "2030-01-01T00:00:00Z"})
+    assert reminder.status_code == 201
+    assert client.put(f"/api/tasks/{task['id']}", json={"status": "Completed"}).status_code == 200
+    assert client.post(f"/api/tasks/{task['id']}/reminders", json={"rule": "late", "scheduled_at": "2030-01-02T00:00:00Z"}).status_code == 409
+    reopened = client.put(f"/api/tasks/{task['id']}", json={"status": "In Progress"}).json()
+    assert reopened["completed_at"] is None and reopened["completed_by"] is None
+    assert client.put(f"/api/tasks/{task['id']}", json={"status": "Completed"}).status_code == 200
+    with Session() as db:
+        from app.models.task import TaskActivity, TaskNotification, TaskReminder
+        assert db.query(TaskReminder).filter_by(task_id=task["id"], enabled=True).count() == 0
+        assert db.query(TaskNotification).filter_by(task_id=task["id"], status="pending").filter(TaskNotification.event_type.like("reminder:%")).count() == 0
+        assert db.query(TaskActivity).filter_by(task_id=task["id"], action_type="completed").count() == 2

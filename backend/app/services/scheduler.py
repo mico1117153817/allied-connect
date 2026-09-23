@@ -5,8 +5,8 @@ from app.config import settings
 from app.services.timestation import timestation
 from app.models.database import SessionLocal
 from app.models.employee import Employee
-from app.services.task_notifications import process_due_notifications
-from app.services.email import send_task_notification
+from app.services.task_notifications import process_due_notifications, process_summary_deliveries, process_notification_deliveries, generate_calendar_reminders
+from app.services.email import send_task_notification, send_task_summary
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,10 @@ async def send_due_task_notifications():
     db = SessionLocal()
     try:
         process_due_notifications(db, send_task_notification)
+        process_summary_deliveries(db, send_task_summary)
+        generate_calendar_reminders(db)
+        db.commit()
+        process_notification_deliveries(db, send_task_notification)
     finally:
         db.close()
 

@@ -8,8 +8,10 @@ from concurrent.futures import ThreadPoolExecutor
 from app.models.database import Base
 from app.models.employee import Employee
 from app.models.compliance_company import ComplianceCompany
-from app.models.task import Task, TaskAssignment, TaskNotification, TaskReminder, VaultAudit, VaultEntry, VaultUnlock
-from app.services.task_notifications import enqueue_task_event, process_due_notifications
+from app.models.task import Task, TaskAssignment, TaskNotification, TaskReminder, TaskSummaryDelivery, VaultAudit, VaultEntry, VaultUnlock
+from app.models.company_workflow import CalendarAttendee, CompanyCalendarEvent, InternalNotification, NotificationDelivery
+from app.services.task_notifications import enqueue_task_event, process_due_notifications, process_notification_deliveries, generate_calendar_reminders
+from app.routers.notifications import create_notification
 from app.services.vault import VaultService, vault_employee_allowed
 from app.routers.tasks import _calendar_events
 
@@ -107,3 +109,40 @@ def test_notification_claim_is_atomic_across_workers(tmp_path):
     with Session() as check:
         row = check.query(TaskNotification).filter_by(idempotency_key="claim-once").one()
         assert row.status == "sent" and row.attempts == 1 and row.claim_token
+
+
+def test_create_notification_honors_email_opt_out_and_is_idempotent(db):
+    employee = db.query(Employee).filter_by(timestation_id="local_262a0ca4abea").one()
+    employee.email_notifications_enabled = False
+    db.commit()
+    assert create_notification(db, employee_id=employee.timestation_id, company_id=1, event_type="test", title="Test", body="Body", link="/", key="same")
+    db.commit()
+    assert not create_notification(db, employee_id=employee.timestation_id, company_id=1, event_type="test", title="Test", body="Body", link="/", key="same")
+    assert db.query(InternalNotification).count() == 1
+    assert db.query(NotificationDelivery).filter_by(channel="email").count() == 0
+
+
+def test_due_claim_skips_terminal_and_archived_tasks(db):
+    _now = datetime.now(timezone.utc)
+    for index, kwargs in enumerate(({"status": "Completed"}, {"status": "Cancelled"}, {"archived_at": _now}), 1):
+        task = Task(task_key=f"TERMINAL-{index}", company_id=1, title="No send", created_by="local_f2a5804ba2e5", **kwargs)
+        db.add(task); db.flush()
+        db.add(TaskNotification(idempotency_key=f"terminal-{index}", task_id=task.id, channel="email", event_type="reminder:1", subject="No", body="No", recipient_email="one@example.test", available_at=_now))
+    db.commit()
+    sent = []
+    assert process_due_notifications(db, lambda *args: sent.append(args)) == 0
+    assert sent == []
+
+
+def test_notification_outbox_claim_and_calendar_reminders(db):
+    event = CompanyCalendarEvent(company_id=1, title="Board", start_at=datetime.now(timezone.utc) + timedelta(minutes=30), reminder_minutes=30, created_by="local_f2a5804ba2e5")
+    db.add(event); db.flush()
+    db.add(CalendarAttendee(event_id=event.id, employee_id="local_262a0ca4abea")); db.commit()
+    now = datetime.now(timezone.utc)
+    assert generate_calendar_reminders(db, now=now) == 1
+    assert generate_calendar_reminders(db, now=now) == 0
+    db.commit()
+    sent = []
+    assert process_notification_deliveries(db, lambda *args: sent.append(args)) == 1
+    assert process_notification_deliveries(db, lambda *args: sent.append(args)) == 0
+    assert len(sent) == 1

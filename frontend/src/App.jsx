@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { isLoggedIn, isManager, isSuperAdmin, canAccessCompliance } from './lib/auth'
+import { isLoggedIn, isManager, isSuperAdmin, canAccessCompliance, canAccessCompanyTasks, canAccessCompanyCalendar, canAccessPasswordVault } from './lib/auth'
 import { api } from './lib/api'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -15,8 +15,9 @@ import Compliance from './pages/Compliance'
 import CompanyTasks from './pages/CompanyTasks'
 import CompanyCalendar from './pages/CompanyCalendar'
 import PasswordVault from './pages/PasswordVault'
+import NotificationCenter from './pages/NotificationCenter'
 
-function ProtectedRoute({ children, managerOnly = false, superAdminOnly = false, complianceOnly = false }) {
+function ProtectedRoute({ children, managerOnly = false, superAdminOnly = false, complianceOnly = false, permission }) {
   const location = useLocation()
   const loggedIn = isLoggedIn()
   const { data: profileStatus, isLoading: profileLoading } = useQuery({
@@ -37,6 +38,8 @@ function ProtectedRoute({ children, managerOnly = false, superAdminOnly = false,
   if (managerOnly && !isManager()) return <Navigate to="/dashboard" replace />
   if (superAdminOnly && !isSuperAdmin()) return <Navigate to="/dashboard" replace />
   if (complianceOnly && !canAccessCompliance()) return <Navigate to="/dashboard" replace />
+  const permissions = { tasks: canAccessCompanyTasks, calendar: canAccessCompanyCalendar, vault: canAccessPasswordVault }
+  if (permission && !permissions[permission]()) return <Navigate to="/dashboard" replace />
   if (documentsLoading && profileStatus?.is_complete) return <div className="min-h-screen flex items-center justify-center text-gray-500">Checking documents...</div>
   if (documentStatus?.has_blocking_documents && location.pathname !== '/documents') return <Navigate to="/documents" replace />
   return <>{children}</>
@@ -55,9 +58,10 @@ export default function App() {
       <Route path="/settings" element={<ProtectedRoute managerOnly><Settings /></ProtectedRoute>} />
       <Route path="/directory" element={<ProtectedRoute><EmployeeDirectory /></ProtectedRoute>} />
       <Route path="/compliance" element={<ProtectedRoute complianceOnly><Compliance /></ProtectedRoute>} />
-      <Route path="/company-tasks" element={<ProtectedRoute managerOnly><CompanyTasks /></ProtectedRoute>} />
-      <Route path="/company-calendar" element={<ProtectedRoute managerOnly><CompanyCalendar /></ProtectedRoute>} />
-      <Route path="/password-vault" element={<ProtectedRoute><PasswordVault /></ProtectedRoute>} />
+      <Route path="/company-tasks" element={<ProtectedRoute permission="tasks"><CompanyTasks /></ProtectedRoute>} />
+      <Route path="/company-calendar" element={<ProtectedRoute permission="calendar"><CompanyCalendar /></ProtectedRoute>} />
+      <Route path="/password-vault" element={<ProtectedRoute permission="vault"><PasswordVault /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )
